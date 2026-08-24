@@ -53,11 +53,23 @@ interface SpecElementBase {
   anchor?: SpecAnchor;
 }
 
-export interface TextSpec extends SpecElementBase {
+/** Typography assertions, shared by `text` and `paragraph`. */
+export interface FontExpectations {
+  fontSize?: number;   // points
+  /**
+   * Expected typeface, e.g. "Roboto" or "Roboto-Medium". Matched loosely: any
+   * subset prefix is stripped and the comparison ignores case, spaces and
+   * hyphens, so "Roboto Medium" matches an embedded "ABCDEF+Roboto-Medium".
+   */
+  fontName?: string;
+  fontBold?: boolean;
+  fontItalic?: boolean;
+}
+
+export interface TextSpec extends SpecElementBase, FontExpectations {
   type: 'text';
   text: string;
   match?: 'exact' | 'contains'; // default 'contains'
-  fontSize?: number;            // points, optional
 }
 
 export interface ImageSpec extends SpecElementBase {
@@ -73,7 +85,7 @@ export interface TableSpec extends SpecElementBase {
   columns?: number;
 }
 
-export interface ParagraphSpec extends SpecElementBase {
+export interface ParagraphSpec extends SpecElementBase, FontExpectations {
   type: 'paragraph';
   text: string;        // starting snippet used to locate the paragraph
   lineSpacing: number; // spec units between consecutive baselines

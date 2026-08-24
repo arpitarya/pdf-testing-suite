@@ -121,13 +121,21 @@ A single line of static text.
 |---|---|---|---|
 | `text` | **yes** | — | The string to find. Whitespace is collapsed and case is ignored. |
 | `match` | no | `"contains"` | `"exact"` compares the whole line; `"contains"` matches a substring. |
-| `fontSize` | no | — | Points. Omit to skip the font-size check entirely. |
+| `fontSize` | no | — | Points. Omit to skip the check. |
+| `fontName` | no | — | Typeface, e.g. `"Roboto Medium"`. Matched loosely: a subset prefix is stripped and case, spaces and hyphens are ignored, so it matches an embedded `ABCDEF+Roboto-Medium`. |
+| `fontBold` | no | — | `true` / `false`. Omit when the weight varies within the line. |
+| `fontItalic` | no | — | `true` / `false`. Omit when the slant varies within the line. |
 
 **How it is located:** all lines whose text matches are collected, then the one nearest the
 expected `top` wins. Content is the anchor, position is the assertion — so an element that
 moved is still *found*, and correctly reported as a `Top`/`Left` failure.
 
-**Checks produced:** `Present`, `Left`, `Top`, and `Font size` when `fontSize` is given.
+**Checks produced:** `Present`, `Left`, `Top`, plus `Font size`, `Font name`, `Font bold`
+and `Font italic` for whichever of those the spec states.
+
+`fontName`, `fontBold` and `fontItalic` also apply to `paragraph`. They read the font the
+PDF actually embedded; when it cannot be resolved the check reports `not resolved` rather
+than failing, so an unreadable font never masquerades as a mismatch.
 
 > `match: "contains"` is the default and is usually what you want for values that vary
 > (dates, amounts, account numbers): specify the stable label portion only. Use `"exact"`
@@ -278,108 +286,100 @@ a neighbour is worse than saying "the label I key off is gone".
 
 ---
 
-## 7. Excel → JSON conversion
+## 7. Converting the layout workbook
 
-### Workbook conventions
+The source specs are an Excel workbook with **one sheet per output page** (`1`, `2`, `3`, …
+`9A`, `9B`, `16A`, `16B`, …). Each sheet is a hierarchical key/value tree, not a flat table.
 
-- **One tab per PDF page.** Name tabs `Page 1`, `Page 2`, … — the trailing number becomes
-  `pages[].page`.
-- **One row per element.**
-- A tab with no element rows should be **omitted** from `pages` rather than emitted with an
-  empty `elements` array.
+### Sheet shape
 
-### Recommended column layout
+| Col | Holds | Examples |
+|---|---|---|
+| **A** | Element | `Solid blue left sidebar container`, `Right side of page`, `Faceted blue left sidebar` |
+| **B** | Sub-element | `Container`, `Container content`, `Header`, `Body`, `Disclosure`, `Object` |
+| **C** | Sub-sub-element | `Program name`, `Sidebar copy`, `Watermark`, `Proposal ID`, `Header box text` |
+| **D** | Parameter group | `Position`, `Alignment`, `Text`, `Font`, `Size`, `Image`, `Background` |
+| **E** | Parameter | `Vertical`, `Horizontal`, `Wording`, `Font name`, `Font size`, `Height`, `File name` |
+| **F** | Description (the value) | `3 inches from left of page`, `Roboto`, `8 pt`, `#003D6D (siddharth Blue)` |
 
-| Column | Maps to | Applies to | Notes |
-|---|---|---|---|
-| `Type` | `type` | all | `text` / `image` / `table` / `paragraph`, lower-case |
-| `ID` | `id` | all | Required, unique within the page, stable across revisions |
-| `Label` | `label` | all | Optional |
-| `Text` | `text` | text, paragraph | Required for those two; leave blank otherwise |
-| `Match` | `match` | text, paragraph | Blank → `contains` |
-| `Top` | `top` | all | Number, spec units |
-| `Left` | `left` | all | Number, spec units |
-| `Width` | `width` | image, table | Number |
-| `Height` | `height` | image | Number |
-| `Rows` | `rows` | table | Blank → omit the check |
-| `Columns` | `columns` | table | Blank → omit the check |
-| `Line spacing` | `lineSpacing` | paragraph | Required for paragraph |
-| `Font size (pt)` | `fontSize` | text | Blank → omit the check |
-| `Anchor text` | `anchor.text` | all | Blank → no anchor at all |
-| `Anchor position` | `anchor.position` | all | Blank → `below` |
-| `Anchor within` | `anchor.within` | all | Blank → `2` |
-| `Anchor occurrence` | `anchor.occurrence` | all | Blank → `1` |
-| `Tol position` | `tolerance.position` | all | Blank → inherit |
-| `Tol size` | `tolerance.size` | all | Blank → inherit |
-| `Tol spacing` | `tolerance.spacing` | all | Blank → inherit |
-| `Tol font size` | `tolerance.fontSize` | all | Blank → inherit |
+Row 1 is the sheet title (`PR Page - Value prop`), row 3 is the header row, and
+`Page orientation` in column A gives `Landscape` or `Portrait`.
 
-### Conversion rules
+**Labels appear only on the first row of a block** and are blank on continuation rows, so a
+reader must carry the last non-empty value down each column — and reset the deeper columns
+whenever a shallower one changes.
 
-1. **Omit blanks; never emit `null` or `""`.** The checker treats a *missing* optional
-   field as "skip this check", but an empty string as a value to match — so a blank `Text`
-   exported as `""` makes every line match.
-2. **Numbers must be JSON numbers**, not strings. `"top": "1.5"` will not work. Strip unit
-   suffixes Excel may have added (`1.5"` → `1.5`).
-3. **Only emit `anchor` when `Anchor text` is filled.** Do not emit
-   `"anchor": { "text": "" }`.
-4. **Only emit `tolerance` when at least one `Tol *` column is filled**, and include only
-   the filled keys.
-5. **Round to a sensible precision** — 3 decimal places in inches is well below any
-   tolerance you would set.
-6. **`id` must be unique within a page.** Duplicates are not rejected but make the report
-   ambiguous.
-7. **Set `units` once at the top level**, and make sure the whole workbook uses it.
+### Five rules the workbook follows
 
-### Worked example
+1. **Positions are prose, not numbers.** `".375 inches from left of page"`. Both the number
+   and the edge have to be parsed out.
+2. **Some positions are measured from the bottom or right edge.** The JSON spec is top-left
+   only, so these must be converted against the page size — which is why `Page orientation`
+   matters. Landscape is 11 × 8.5 in.
+3. **One block can hold several elements.** `Wording 1 (Plan description)` … `Wording 5
+   (Adjust description)` share one set of font settings but each has its own
+   `Horizontal (Plan description)` row. They expand into five spec elements.
+4. **`Vertical (all)`** means one vertical shared by every variant in the block.
+5. **Yes/No columns are not always yes or no.** `As provided`, `Yes, words as shown` and
+   `Only the word siddharth is italicized` describe runs *within* a line, not the line as a
+   whole. Those must be left unasserted rather than coerced to `true`.
 
-| Type | ID | Text | Top | Left | Width | Height | Anchor text | Anchor position | Anchor within |
-|---|---|---|---|---|---|---|---|---|---|
-| text | title | MONTHLY STATEMENT | 0.75 | 0.75 | | | | | |
-| image | logo | | 0.55 | 6.4 | 1.6 | 0.6 | MONTHLY STATEMENT | right | 6 |
-| table | charges | | 3.0 | 0.75 | 7.0 | | Statement period | below | |
+### What converts, and what cannot
 
-becomes:
+| Workbook row | Becomes |
+|---|---|
+| `Wording` + `Position` | a `text` element |
+| `Wording 1..5` + `Horizontal (…)` | one `text` element each |
+| `Image` `File name` + `Position` + `Size` | an `image` element |
+| `Font name` / `Font size` / `Font bold` / `Font italicize` | `fontName` / `fontSize` / `fontBold` / `fontItalic` |
+| `Font color`, `Hex code`, `Background` `Color` | **nothing** — not measurable from a rendered PDF |
+| `Font case`, `Font underline` | **nothing** — not currently checked |
+| A container with size but no text | **nothing** — a box with no content cannot be located |
+| Wording that is entirely `<<placeholders>>` | **nothing** — no stable text to match |
 
-```json
-{
-  "title": "Monthly Statement Template v3",
-  "units": "in",
-  "pages": [
-    {
-      "page": 1,
-      "elements": [
-        {
-          "type": "text",
-          "id": "title",
-          "text": "MONTHLY STATEMENT",
-          "top": 0.75,
-          "left": 0.75
-        },
-        {
-          "type": "image",
-          "id": "logo",
-          "top": 0.55,
-          "left": 6.4,
-          "width": 1.6,
-          "height": 0.6,
-          "anchor": { "text": "MONTHLY STATEMENT", "position": "right", "within": 6 }
-        },
-        {
-          "type": "table",
-          "id": "charges",
-          "top": 3.0,
-          "left": 0.75,
-          "width": 7.0,
-          "anchor": { "text": "Statement period", "position": "below" }
-        }
-      ]
-    }
-  ]
-}
+Roughly a third of the rows become checks. The rest describe colour, casing and box geometry
+that a rendered-PDF checker has no way to verify. **They are reported, never silently
+dropped.**
+
+### The converter
+
+[`tools/spec-from-excel.py`](tools/spec-from-excel.py) implements all of the above.
+
+```bash
+# one sheet exported to CSV — needs nothing beyond Python
+python tools/spec-from-excel.py page2.csv --page 2 --out page-2.json --report page-2-report.txt
+
+# straight from the workbook — needs: pip install openpyxl
+python tools/spec-from-excel.py "Output Pages List.xlsx" --sheet 2 --page 2 --out page-2.json
+
+# every sheet at once; the sheet name supplies the page number
+python tools/spec-from-excel.py "Output Pages List.xlsx" --all --out-dir ./specs
 ```
 
----
+It handles the prose positions, the bottom/right-edge conversion, the numbered-variant
+expansion, the conditional Yes/No values, and `<<placeholder>>` wordings — reducing those to
+a `contains` match on the longest fixed fragment, or skipping them when nothing distinctive
+remains.
+
+**Always read the report.** It lists every row that did not become a check, and why:
+
+```
+landscape page, 20 element(s) converted, 37 row(s) not convertible
+  - Right side of page / Header - font color: #003D6D (not measurable from a rendered PDF)
+  - Right side of page / Page name and page number - wording is entirely dynamic,
+    nothing stable to match
+  - ... - measured from the right edge, the text width is unknown, so `left` cannot be derived
+```
+
+That last one is the case to watch. A measurement from the **right** edge fixes where text
+*ends*; deriving a `left` from it needs the rendered width of the string, which the converter
+cannot know. Rather than emit a check that would always fail, it skips the element and tells
+you. Add those by hand, or anchor them to a nearby label (§6).
+
+A worked example is checked in:
+[`tools/samples/pr-page-value-prop.csv`](tools/samples/pr-page-value-prop.csv) and the
+[JSON it produces](tools/samples/pr-page-value-prop.json).
+
 
 ## 8. Validation and common mistakes
 
@@ -442,7 +442,10 @@ a spec — it is a list of assumptions.
       // text / paragraph
       "text":  "string",
       "match": "exact" | "contains",  // default "contains"
-      "fontSize":    0,               // text only, POINTS
+      "fontSize":    0,               // text + paragraph, POINTS
+      "fontName":   "Roboto Medium", // text + paragraph
+      "fontBold":   true,            // text + paragraph
+      "fontItalic": false,           // text + paragraph
       "lineSpacing": 0,               // paragraph only, required
 
       // image / table

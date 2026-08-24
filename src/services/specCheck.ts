@@ -49,6 +49,9 @@ interface PointItem {
   width: number;
   height: number; // font height
   baseline: number; // from top
+  font?: string;   // resolved BaseFont name, subset prefix stripped
+  bold?: boolean;
+  italic?: boolean;
 }
 interface Line {
   items: PointItem[];
@@ -61,6 +64,34 @@ interface Line {
   baseline: number;
   fontHeight: number;
   count: number;
+  font?: string;
+  bold?: boolean;
+  italic?: boolean;
+}
+
+const stripSubsetTag = (name: string) => name.replace(/^[A-Z]{6}\+/, '');
+
+/**
+ * Resolve a run's typeface. `page.commonObjs` only holds fonts once the page has
+ * been rendered, which is why runSpec renders before extracting. An unresolved
+ * font yields nothing rather than a false mismatch.
+ */
+function resolveFont(page: PDFPageProxy, fontName: string | undefined) {
+  if (!fontName) return {};
+  try {
+    const f = (page.commonObjs as unknown as { get(n: string): unknown }).get(fontName) as
+      | { name?: string; fallbackName?: string; bold?: boolean; italic?: boolean; black?: boolean }
+      | undefined;
+    if (!f) return {};
+    const name = stripSubsetTag(f.name ?? f.fallbackName ?? fontName);
+    return {
+      font: name,
+      bold: f.bold === true || f.black === true || /bold|black|heavy/i.test(name),
+      italic: f.italic === true || /italic|oblique/i.test(name),
+    };
+  } catch {
+    return {};
+  }
 }
 
 async function extractItems(page: PDFPageProxy): Promise<{ items: PointItem[]; widthPt: number; heightPt: number }> {
@@ -68,7 +99,7 @@ async function extractItems(page: PDFPageProxy): Promise<{ items: PointItem[]; w
   const content = await page.getTextContent();
   const items: PointItem[] = [];
   for (const raw of content.items) {
-    const it = raw as { str?: string; width?: number; transform?: number[] };
+    const it = raw as { str?: string; width?: number; transform?: number[]; fontName?: string };
     if (typeof it.str !== 'string' || !it.str.trim()) continue;
     const m = pdfjsLib.Util.transform(vp.transform, it.transform!);
     const fontHeight = Math.hypot(m[2], m[3]);
@@ -79,6 +110,7 @@ async function extractItems(page: PDFPageProxy): Promise<{ items: PointItem[]; w
       width: (it.width ?? 0),
       height: fontHeight,
       baseline: m[5],
+      ...resolveFont(page, it.fontName),
     });
   }
   return { items, widthPt: vp.width, heightPt: vp.height };
@@ -118,6 +150,12 @@ function groupLines(items: PointItem[]): Line[] {
     l.baseline = l.items.reduce((s, i) => s + i.baseline, 0) / l.items.length;
     l.fontHeight = median(l.items.map((i) => i.height));
     l.count = l.items.length;
+    // The line's typeface is whichever its first resolved run uses; a line that
+    // mixes fonts is reported against that one.
+    const withFont = ordered.find((i) => i.font);
+    l.font = withFont?.font;
+    l.bold = withFont?.bold;
+    l.italic = withFont?.italic;
   }
   return lines;
 }
@@ -258,6 +296,49 @@ function anchorMissing(base: ElementResult, anchor: SpecAnchor): ElementResult {
   };
 }
 
+/**
+ * Compare typeface names loosely: strip a subset prefix, then ignore case,
+ * spaces and hyphens. A spec saying "Roboto Medium" should match an embedded
+ * "ABCDEF+Roboto-Medium" — the exact spelling is a producer detail.
+ */
+const fontKey = (s: string) => s.replace(/^[A-Z]{6}\+/, '').toLowerCase().replace(/[\s_-]+/g, '');
+
+/** Typeface / weight / slant checks, skipped when the spec does not state them. */
+function fontChecks(
+  el: { fontName?: string; fontBold?: boolean; fontItalic?: boolean },
+  line: { font?: string; bold?: boolean; italic?: boolean },
+): CheckResult[] {
+  const out: CheckResult[] = [];
+
+  if (el.fontName != null) {
+    // An unresolved font is reported as unknown rather than as a mismatch.
+    const actual = line.font;
+    out.push({
+      name: 'Font name',
+      expected: el.fontName,
+      actual: actual ?? 'not resolved',
+      pass: actual != null && fontKey(actual) === fontKey(el.fontName),
+    });
+  }
+  if (el.fontBold != null) {
+    out.push({
+      name: 'Font bold',
+      expected: el.fontBold ? 'bold' : 'not bold',
+      actual: line.bold == null ? 'not resolved' : line.bold ? 'bold' : 'not bold',
+      pass: line.bold === el.fontBold,
+    });
+  }
+  if (el.fontItalic != null) {
+    out.push({
+      name: 'Font italic',
+      expected: el.fontItalic ? 'italic' : 'not italic',
+      actual: line.italic == null ? 'not resolved' : line.italic ? 'italic' : 'not italic',
+      pass: line.italic === el.fontItalic,
+    });
+  }
+  return out;
+}
+
 function posCheck(name: string, actualPt: number, expectedPt: number, tolPt: number, fmt: (n: number) => string): CheckResult {
   const delta = actualPt - expectedPt;
   return {
@@ -325,6 +406,7 @@ function checkText(
       delta: `${d >= 0 ? '+' : ''}${d.toFixed(1)}pt`, pass: Math.abs(d) <= tol(el, spec, 'fontSize'),
     });
   }
+  checks.push(...fontChecks(el, line));
   return {
     ...base,
     status: checks.every((c) => c.pass) ? 'pass' : 'fail',
@@ -491,6 +573,7 @@ function checkParagraph(
   }
 
   const checks: CheckResult[] = [{ name: 'Present', expected: 'found', actual: `${para.length} lines`, pass: true }];
+  checks.push(...fontChecks(el, start));
   checks.push(posCheck('Left', start.left, expLeft, posTol, fmt));
   checks.push(posCheck('Top', start.top, expTop, posTol, fmt));
   if (para.length >= 2) {
@@ -573,12 +656,14 @@ export async function runSpec(
 
     if (pdfPage >= 1 && pdfPage <= pdf.numPages) {
       const page = await pdf.getPage(pdfPage);
+      // Render FIRST: pdf.js only populates its font objects once a page has been
+      // drawn, and typeface checks depend on them.
+      dataUrl = await renderPage(page);
       const { items, widthPt: wp, heightPt: hp } = await extractItems(page);
       widthPt = wp;
       heightPt = hp;
       const lines = groupLines(items);
       const images = await extractImages(page, hp);
-      dataUrl = await renderPage(page);
 
       for (const el of sp.elements) {
         let r: ElementResult;
