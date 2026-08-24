@@ -42,7 +42,12 @@ statement of intent, which is what makes it usable when there is no reference do
 | `tolerance` | no | see §4 | Defaults for all elements. |
 | `pages` | **yes** | — | Non-empty array. One entry per page you want checked. |
 
-`pages[].page` is **1-based** and must be a number. Pages not listed are not checked. A
+`pages[].page` is **1-based** and must be a number.
+
+> **You do not have to renumber a single-page spec.** A spec exported from one sheet will say
+> `"page": 1`. In the app, switch **Test new pages** to **One page** and point it at whichever
+> PDF page it actually describes — the spec is left alone, and the report records the mapping.
+ Pages not listed are not checked. A
 page number beyond the end of the PDF is reported as `not-found` for every element on it.
 
 ---

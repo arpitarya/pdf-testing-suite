@@ -5,7 +5,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import pixelmatch from 'pixelmatch';
-import { diffWords } from 'diff';
+import { diffWords, diffArrays } from 'diff';
 
 import type {
   TextItem,
@@ -14,6 +14,7 @@ import type {
   DiffSegment,
   MatchedPair,
   ItemMatch,
+  RestyledSpan,
   PixelDiffResult,
   RenderedPageImage,
   PageComparison,
@@ -284,7 +285,12 @@ export function pixelDiff(
 }
 
 // ── 5.8 matchItems ────────────────────────────────────────────────────
+// Matching is deliberately case-insensitive so that a capitalisation change
+// pairs the two runs instead of looking like a deletion plus an insertion. The
+// difference is not discarded, though — see `caseDiff` below.
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+/** Same collapsing, but case preserved — used to detect capitalisation edits. */
+const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 export function matchItems(
   itemsA: TextItem[],
@@ -339,6 +345,9 @@ export function matchItems(
       // Same words on both sides, so any typography difference is a restyle
       // rather than a content edit.
       styleDiff: diffStyle(a.style, best.item.style, opts.compareSizes ?? true) ?? undefined,
+      // These two only matched because matching folds case. If the raw text
+      // differs, the capitalisation changed — a content edit, not a restyle.
+      caseDiff: collapse(a.str) !== collapse(best.item.str) || undefined,
     });
   }
 
@@ -349,8 +358,282 @@ export function matchItems(
     }
   }
 
-  return { matched, onlyA, onlyB };
+  // Recover spans that only LOOK like content changes because the two sides were
+  // split into runs differently (see reconcileSegmentation).
+  const reconciled = reconcileSegmentation(onlyA, onlyB, opts.compareSizes ?? true);
+  return {
+    matched,
+    onlyA: reconciled.onlyA,
+    onlyB: reconciled.onlyB,
+    restyled: reconciled.restyled,
+  };
 }
+
+// ── word-level reconciliation ─────────────────────────────────────────
+//
+// Two problems are solved together here, because they are the same problem.
+//
+// 1. pdf.js begins a new text run wherever the font changes, so restyling one
+//    word re-segments the whole line. Comparing runs by string equality then
+//    matches nothing, and an UNCHANGED sentence looks like a deletion plus
+//    several insertions.
+//
+// 2. Even when text genuinely changed, reporting the whole line as replaced is
+//    far coarser than the change actually was. `contentMatch` is already scored
+//    with a word-level diff, so a line-level change list disagrees with the very
+//    metric printed beside it.
+//
+// The leftover runs are therefore re-cut into WORDS and diffed word by word.
+// Words present on both sides yield a restyle span only if their typography
+// differs; differing words yield precise removed/added spans.
+//
+// Lines are split into CELLS at horizontal gaps first. A "line" here is a
+// y-band, so a table row is one line — without that split, two independent cell
+// edits merge into a single nonsensical span.
+
+interface Word {
+  text: string;   // as rendered
+  norm: string;   // lowercased, for comparison
+  box: TextItem;  // exact when the run holds one word, interpolated otherwise
+  item: TextItem; // the run it came from, for typography
+}
+
+/** Group items into visual lines by vertical proximity. */
+function toLines(items: TextItem[]): TextItem[][] {
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines: TextItem[][] = [];
+  for (const item of sorted) {
+    const last = lines[lines.length - 1];
+    const ref = last?.[0];
+    if (ref && Math.abs(item.y - ref.y) <= Math.max(2, ref.h * 0.6)) last.push(item);
+    else lines.push([item]);
+  }
+  return lines;
+}
+
+/**
+ * Split a line at horizontal gaps wide enough to be column separators.
+ *
+ * Inter-word spacing runs about 0.25–0.3× the font size; a table column gap is
+ * a whole em or more. Splitting at 0.8× keeps words together and cells apart.
+ */
+function splitCells(line: TextItem[]): TextItem[][] {
+  const sorted = [...line].sort((a, b) => a.x - b.x);
+  const cells: TextItem[][] = [];
+  let current: TextItem[] = [];
+  for (const item of sorted) {
+    const prev = current[current.length - 1];
+    if (prev) {
+      const gap = item.x - (prev.x + prev.w);
+      if (gap > Math.max(prev.h, item.h) * 0.8) {
+        cells.push(current);
+        current = [];
+      }
+    }
+    current.push(item);
+  }
+  if (current.length) cells.push(current);
+  return cells;
+}
+
+/**
+ * Cut a cell into words, each carrying a box.
+ *
+ * A run holding a single word gets that run's exact box. Inside a multi-word run
+ * the box is interpolated by character count — approximate for proportional
+ * fonts, but the error stays bounded within the run, which is good enough to
+ * highlight and far better than attributing the whole run to one word.
+ */
+function cellWords(cell: TextItem[]): Word[] {
+  const words: Word[] = [];
+  for (const item of [...cell].sort((a, b) => a.x - b.x)) {
+    const parts = item.str.split(/(\s+)/);
+    const total = item.str.length || 1;
+    let charAt = 0;
+    for (const part of parts) {
+      if (part && !/^\s+$/.test(part)) {
+        const box: TextItem =
+          parts.length === 1
+            ? item
+            : {
+                str: part,
+                x: item.x + (item.w * charAt) / total,
+                y: item.y,
+                w: (item.w * part.length) / total,
+                h: item.h,
+                style: item.style,
+              };
+        words.push({ text: part, norm: part.toLowerCase(), box, item });
+      }
+      charAt += part.length;
+    }
+  }
+  return words;
+}
+
+function unionOf(boxes: TextItem[], text: string): TextItem {
+  const x = Math.min(...boxes.map((i) => i.x));
+  const y = Math.min(...boxes.map((i) => i.y));
+  const right = Math.max(...boxes.map((i) => i.x + i.w));
+  const bottom = Math.max(...boxes.map((i) => i.y + i.h));
+  return { str: text, x, y, w: right - x, h: bottom - y, style: boxes[0]?.style };
+}
+
+const joinWords = (ws: Word[]) => ws.map((w) => w.text).join(' ');
+
+/** How alike two cells are, 0..1, by shared words. Decides whether to pair. */
+function similarity(a: Word[], b: Word[]): number {
+  if (!a.length || !b.length) return 0;
+  const pool = new Map<string, number>();
+  for (const w of b) pool.set(w.norm, (pool.get(w.norm) ?? 0) + 1);
+  let shared = 0;
+  for (const w of a) {
+    const n = pool.get(w.norm) ?? 0;
+    if (n > 0) {
+      shared++;
+      pool.set(w.norm, n - 1);
+    }
+  }
+  return shared / Math.max(a.length, b.length);
+}
+
+/**
+ * Reclassify leftover runs by diffing them word by word.
+ *
+ * Returns the restyle spans recovered, plus the runs that remain genuine content
+ * changes — now cut down to the words that actually differ.
+ */
+function reconcileSegmentation(
+  onlyA: TextItem[],
+  onlyB: TextItem[],
+  compareSizes: boolean,
+): { restyled: RestyledSpan[]; onlyA: TextItem[]; onlyB: TextItem[] } {
+  const cellsA = toLines(onlyA).flatMap(splitCells).map(cellWords).filter((c) => c.length);
+  const cellsB = toLines(onlyB).flatMap(splitCells).map(cellWords).filter((c) => c.length);
+
+  const restyled: RestyledSpan[] = [];
+  const contentA: TextItem[] = [];
+  const contentB: TextItem[] = [];
+  const usedB = new Set<number>();
+
+  // Pairing must be confident. Cells sharing too little are two different pieces
+  // of content, and diffing them would invent word-level noise instead of
+  // reporting an honest whole-cell replacement.
+  const MIN_SIMILARITY = 0.34;
+
+  for (const a of cellsA) {
+    let bestIdx = -1;
+    let bestScore = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < cellsB.length; i++) {
+      if (usedB.has(i)) continue;
+      const score = similarity(a, cellsB[i]);
+      if (score < MIN_SIMILARITY) continue;
+      const dist =
+        Math.abs(cellsB[i][0].box.y - a[0].box.y) + Math.abs(cellsB[i][0].box.x - a[0].box.x);
+      if (score > bestScore || (score === bestScore && dist < bestDist)) {
+        bestScore = score;
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx < 0) {
+      contentA.push(unionOf(a.map((w) => w.box), joinWords(a)));
+      continue;
+    }
+
+    usedB.add(bestIdx);
+    const b = cellsB[bestIdx];
+
+    // diffArrays emits multiple spans natively, which a head/tail trim cannot:
+    // two separate edits on one line stay two findings.
+    const parts = diffArrays(
+      a.map((w) => w.norm),
+      b.map((w) => w.norm),
+    );
+
+    let ai = 0;
+    let bi = 0;
+    let pendingRemoved: Word[] | null = null;
+
+    const flushPending = () => {
+      if (!pendingRemoved) return;
+      contentA.push(unionOf(pendingRemoved.map((w) => w.box), joinWords(pendingRemoved)));
+      pendingRemoved = null;
+    };
+
+    for (const part of parts) {
+      const count = part.count ?? part.value.length;
+
+      if (part.removed) {
+        flushPending();
+        pendingRemoved = a.slice(ai, ai + count);
+        ai += count;
+        continue;
+      }
+
+      if (part.added) {
+        const addedWords = b.slice(bi, bi + count);
+        contentB.push(unionOf(addedWords.map((w) => w.box), joinWords(addedWords)));
+        // A removed span immediately followed by an added one is a replacement;
+        // both are emitted so the grouping step can pair them.
+        flushPending();
+        bi += count;
+        continue;
+      }
+
+      flushPending();
+
+      // Unchanged words: the only thing that can differ is typography.
+      let spanStart = -1;
+      let spanDiff: StyleDiff | null = null;
+      const flushStyle = (endExclusive: number) => {
+        if (spanStart < 0 || !spanDiff) return;
+        const wordsA = a.slice(ai + spanStart, ai + endExclusive);
+        const wordsB = b.slice(bi + spanStart, bi + endExclusive);
+        const text = joinWords(wordsA);
+        restyled.push({
+          text,
+          a: unionOf(wordsA.map((w) => w.box), text),
+          b: unionOf(wordsB.map((w) => w.box), text),
+          styleDiff: spanDiff,
+        });
+        spanStart = -1;
+        spanDiff = null;
+      };
+
+      for (let k = 0; k < count; k++) {
+        const diff = diffStyle(a[ai + k]?.item.style, b[bi + k]?.item.style, compareSizes);
+        if (diff) {
+          if (spanStart < 0) {
+            spanStart = k;
+            spanDiff = diff;
+          } else if (diff.summary !== spanDiff?.summary) {
+            flushStyle(k);
+            spanStart = k;
+            spanDiff = diff;
+          }
+        } else {
+          flushStyle(k);
+        }
+      }
+      flushStyle(count);
+
+      ai += count;
+      bi += count;
+    }
+    flushPending();
+  }
+
+  // Any B cell never paired is wholly new content.
+  cellsB.forEach((b, i) => {
+    if (!usedB.has(i)) contentB.push(unionOf(b.map((w) => w.box), joinWords(b)));
+  });
+
+  return { restyled, onlyA: contentA, onlyB: contentB };
+}
+
 
 // ── target box dimensions ─────────────────────────────────────────────
 // `scale` is px-per-point; px-per-inch = scale × 72.

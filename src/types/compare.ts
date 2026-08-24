@@ -38,6 +38,12 @@ export interface MatchedPair {
   offset: number; // √(dx² + dy²)
   /** Set when the words are identical but the typography differs. */
   styleDiff?: StyleDiff;
+  /**
+   * Set when the two runs matched only because matching ignores case — i.e. the
+   * letters are the same but the capitalisation differs. That IS a content
+   * change and must be reported, not silently absorbed by the matcher.
+   */
+  caseDiff?: boolean;
 }
 
 /** What changed about a run's typography. Only populated when something did. */
@@ -50,11 +56,29 @@ export interface StyleDiff {
   summary: string;
 }
 
+/**
+ * A span of text that is identical on both sides but rendered with different
+ * typography, recovered after the two sides were split into runs differently.
+ *
+ * pdf.js starts a new text run wherever the font changes, so restyling one word
+ * mid-sentence changes how the WHOLE line is segmented. Comparing runs by string
+ * equality then matches nothing, and an unchanged sentence looks like a deletion
+ * plus several insertions. These spans are what that reconciliation recovers.
+ */
+export interface RestyledSpan {
+  text: string;
+  a: TextItem; // union box of the contributing runs on side A
+  b: TextItem; // union box of the contributing runs on side B
+  styleDiff: StyleDiff;
+}
+
 /** Full result of matching two pages' text items. */
 export interface ItemMatch {
   matched: MatchedPair[];
   onlyA: TextItem[];
   onlyB: TextItem[];
+  /** Same words, different type — see RestyledSpan. */
+  restyled: RestyledSpan[];
 }
 
 /** Output of a pixelmatch comparison. */

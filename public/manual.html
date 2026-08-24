@@ -298,6 +298,13 @@
       <p>Text and paragraphs are matched by their content (then by nearest position). Images are read from the
         PDF's draw operations. Tables are detected as aligned multi-column text blocks. A spec element that
         can't be found in the PDF is reported as <b>NOT FOUND</b> rather than silently passing.</p>
+      <div class="note"><b>Checking one page at a time</b>A spec exported from a single
+        sheet always says <code>"page": 1</code>, but the page it describes may sit anywhere in a
+        long document. Switch the workspace to <span class="ui">One page</span>, pick the PDF page
+        and the spec page, and it checks that pairing without you editing the spec. The result
+        header and the exported report both record the mapping — <span class="ui">spec page 1 →
+        PDF page 7</span> — so a pass can never be mistaken for one from a different page.</div>
+
     </section>
 
     <section id="measure">

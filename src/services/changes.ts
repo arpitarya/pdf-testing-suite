@@ -4,11 +4,37 @@
 import type { PageComparison, PageSummary, StyleDiff, TextItem } from '../types/compare';
 
 // Three kinds of difference, deliberately kept apart:
-//   removed / added  the words themselves changed  -> a CONTENT change
-//   styled           same words, different type    -> a STYLE change
-//   moved            same words, same type, shifted -> a LAYOUT change
-// A run whose text was edited is always content, never layout, even though the
-// edit usually shifts everything after it.
+//
+//   removed / added  the words themselves changed   -> CONTENT
+//   styled           same words, different type     -> STYLE
+//   moved            same words, same type, shifted -> LAYOUT
+//
+// PRECEDENCE, when one run qualifies for more than one:
+//
+//   content > style > layout
+//
+// Rationale: the higher category explains the lower one. Editing a word changes
+// its width, which shifts everything after it; restyling a word does the same.
+// Reporting the consequence instead of the cause sends a reader to the wrong
+// place, and reporting both double-counts one change. So a run whose text
+// changed is CONTENT even if it also moved and was also restyled.
+//
+// Consequence worth understanding: a change and the elements it *pushed* are
+// different elements, so a single edit legitimately yields one content change
+// plus several layout changes. Likewise a line whose wording changed AND whose
+// font changed yields both a content change (the edited word) and a style
+// change (the untouched words around it) — again, different elements. What must
+// never happen is one element appearing in two categories.
+//
+// Granularity is WORD level, not line level: only the words that actually
+// differ are reported, and a line carrying two separate edits produces two
+// findings rather than one merged span. Lines are split at column gaps first,
+// so a table row's cells stay independent.
+//
+// These rules are pinned by cli/verify/classification.ts — 24 purpose-built PDF
+// pairs covering each category alone, every pairwise combination, cascades,
+// duplicate text, and capitalisation. Run `npm run verify` in cli/ after
+// touching this file.
 export type ChangeType = 'removed' | 'added' | 'moved' | 'styled';
 
 export interface Change {
@@ -62,7 +88,18 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
   const raw: Omit<Change, 'id' | 'group'>[] = [];
   for (const it of pc.match.onlyA) raw.push({ type: 'removed', text: it.str, a: it, b: null });
   for (const it of pc.match.onlyB) raw.push({ type: 'added', text: it.str, a: null, b: it });
+  // Same words, different type, recovered from differing run segmentation.
+  for (const r of pc.match.restyled) {
+    raw.push({ type: 'styled', text: r.text, a: r.a, b: r.b, offset: 0, style: r.styleDiff });
+  }
   for (const p of pc.match.matched) {
+    // Content outranks everything: a capitalisation edit is a text change, even
+    // though the matcher paired these two runs by folding case.
+    if (p.caseDiff) {
+      raw.push({ type: 'removed', text: p.a.str, a: p.a, b: null });
+      raw.push({ type: 'added', text: p.b.str, a: null, b: p.b });
+      continue;
+    }
     // Typography wins over position: a run that was restyled is reported as a
     // style change even if it also shifted, because the restyle is the cause and
     // the shift is usually its consequence.

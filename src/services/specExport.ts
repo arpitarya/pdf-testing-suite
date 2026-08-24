@@ -29,6 +29,7 @@ export function exportSpecJson(report: SpecReport) {
     },
     pages: report.pages.map((p) => ({
       page: p.page,
+      specPage: p.specPage,
       elements: p.elements.map((e) => ({
         id: e.id,
         type: e.type,
@@ -75,7 +76,11 @@ export function exportSpecHtml(report: SpecReport) {
         : '';
       const img = p.dataUrl ? `<div class="pgwrap"><img src="${p.dataUrl}" />${overlays}</div>` : '<p class="muted">Page not present in the PDF.</p>';
       return `<section class="page">
-        <h2>Page ${p.page} <small>${p.failCount === 0 ? '✓ all checks pass' : `${p.failCount} check(s) failed`}</small></h2>
+        <h2>PDF page ${p.page}${
+          p.specPage !== p.page
+            ? ` <em style="font-size:13px;font-weight:500;color:#b45309">(spec page ${p.specPage} was checked against this page)</em>`
+            : ''
+        } <small>${p.failCount === 0 ? '✓ all checks pass' : `${p.failCount} check(s) failed`}</small></h2>
         <div class="cols">
           ${img}
           <table class="res">

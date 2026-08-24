@@ -20,6 +20,15 @@ A React app with four workspaces:
 
 Built from the spec in [`comparison.md`](comparison.md).
 
+## Presentation
+
+- **Speaking script** — [presentation-script.md](presentation-script.md) — slide-by-slide
+  notes with timings, the live-demo walkthrough, and answers to the questions that come up.
+- **Demo deck** — [public/presentation.html](public/presentation.html)
+  ([`/presentation.html`](http://localhost:5173/presentation.html)) — 15 slides covering how
+  the comparison pipeline works, the three change categories, the automation story, and what
+  each library contributes. Arrow keys or space to advance; works offline.
+
 ## User manual &amp; demo
 
 - **User manual** — a full feature reference at [public/manual.html](public/manual.html)

@@ -1,0 +1,143 @@
+// ── segmentation reconciliation ───────────────────────────────────────
+//
+// pdf.js begins a new text run wherever the font changes. Restyling a single
+// word therefore re-segments the entire line: side A may hold one run for a
+// sentence while side B holds three. Matching runs by string equality then finds
+// nothing, and an UNCHANGED sentence is reported as a deletion plus several
+// insertions — a content change that never happened.
+//
+// This pass takes the leftover runs, rebuilds each line's character sequence
+// ignoring whitespace, and where the two sides spell the same thing it
+// reclassifies them: either as restyled spans (naming the exact characters whose
+// typography differs) or, when nothing differs at all, as no change whatsoever.
+
+interface CharCell {
+  ch: string;
+  item: TextItem;
+}
+
+/** Non-whitespace characters of a line in reading order, each tagged with its run. */
+function lineChars(items: TextItem[]): CharCell[] {
+  const cells: CharCell[] = [];
+  for (const item of [...items].sort((p, q) => p.x - q.x)) {
+    for (const ch of item.str) {
+      if (!/\s/.test(ch)) cells.push({ ch, item });
+    }
+  }
+  return cells;
+}
+
+/** Group items into visual lines by vertical proximity. */
+function toLines(items: TextItem[]): TextItem[][] {
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines: TextItem[][] = [];
+  for (const item of sorted) {
+    const last = lines[lines.length - 1];
+    const ref = last?.[0];
+    if (ref && Math.abs(item.y - ref.y) <= Math.max(2, ref.h * 0.6)) last.push(item);
+    else lines.push([item]);
+  }
+  return lines;
+}
+
+function unionOf(items: TextItem[], text: string): TextItem {
+  const x = Math.min(...items.map((i) => i.x));
+  const y = Math.min(...items.map((i) => i.y));
+  const right = Math.max(...items.map((i) => i.x + i.w));
+  const bottom = Math.max(...items.map((i) => i.y + i.h));
+  return { str: text, x, y, w: right - x, h: bottom - y, style: items[0]?.style };
+}
+
+/**
+ * Reclassify leftover runs whose two sides spell the same line.
+ *
+ * Mutates nothing: returns the spans recovered plus the runs that remain genuine
+ * content changes.
+ */
+function reconcileSegmentation(
+  onlyA: TextItem[],
+  onlyB: TextItem[],
+  compareSizes: boolean,
+): { restyled: RestyledSpan[]; onlyA: TextItem[]; onlyB: TextItem[] } {
+  const linesA = toLines(onlyA);
+  const linesB = toLines(onlyB);
+  const usedB = new Set<number>();
+  const restyled: RestyledSpan[] = [];
+  const keptA: TextItem[] = [];
+  const consumedB = new Set<TextItem>();
+
+  for (const lineA of linesA) {
+    const cellsA = lineChars(lineA);
+    const wordA = cellsA.map((c) => c.ch).join('');
+    if (!wordA) {
+      keptA.push(...lineA);
+      continue;
+    }
+
+    // Pair only with a B line that spells EXACTLY the same thing. Fuzzy pairing
+    // was tried and rejected: a table row is a single "line", so trimming a
+    // shared head and tail merges two independent cell edits into one nonsense
+    // span. Reporting a genuinely-changed line as a whole-line replacement is
+    // less precise but never wrong.
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < linesB.length; i++) {
+      if (usedB.has(i)) continue;
+      const cells = lineChars(linesB[i]);
+      if (cells.map((c) => c.ch).join('') !== wordA) continue;
+      const d = Math.abs(linesB[i][0].y - lineA[0].y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+
+    if (bestIdx < 0) {
+      keptA.push(...lineA);
+      continue;
+    }
+
+    usedB.add(bestIdx);
+    const lineB = linesB[bestIdx];
+    for (const item of lineB) consumedB.add(item);
+    const cellsB = lineChars(lineB);
+
+    // The two sides spell the same line, so nothing here is a content change.
+    // Collect the maximal spans whose typography differs; identical spans yield
+    // nothing at all, because differing segmentation alone is not a change.
+    let start = -1;
+    let spanDiff: StyleDiff | null = null;
+    const flush = (endExclusive: number) => {
+      if (start < 0 || !spanDiff) return;
+      const text = cellsA.slice(start, endExclusive).map((c) => c.ch).join('');
+      const itemsA = [...new Set(cellsA.slice(start, endExclusive).map((c) => c.item))];
+      const itemsB = [...new Set(cellsB.slice(start, endExclusive).map((c) => c.item))];
+      restyled.push({ text, a: unionOf(itemsA, text), b: unionOf(itemsB, text), styleDiff: spanDiff });
+      start = -1;
+      spanDiff = null;
+    };
+
+    for (let i = 0; i < cellsA.length; i++) {
+      const diff = diffStyle(cellsA[i].item.style, cellsB[i].item.style, compareSizes);
+      if (diff) {
+        if (start < 0) {
+          start = i;
+          spanDiff = diff;
+        } else if (diff.summary !== spanDiff?.summary) {
+          flush(i);
+          start = i;
+          spanDiff = diff;
+        }
+      } else {
+        flush(i);
+      }
+    }
+    flush(cellsA.length);
+  }
+
+  return {
+    restyled,
+    onlyA: keptA,
+    onlyB: onlyB.filter((item) => !consumedB.has(item)),
+  };
+}

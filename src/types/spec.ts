@@ -123,7 +123,14 @@ export interface ElementResult {
 }
 
 export interface SpecPageResult {
-  page: number;         // 1-based
+  /** The PDF page actually checked, 1-based. */
+  page: number;
+  /**
+   * The page number the spec declared. Differs from `page` when a single spec
+   * page was deliberately pointed at a different PDF page — the report shows the
+   * mapping so a result can never be misread as coming from somewhere else.
+   */
+  specPage: number;
   pageWidthPt: number;
   pageHeightPt: number;
   dataUrl: string | null;

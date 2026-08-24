@@ -514,11 +514,42 @@ function checkParagraph(
 }
 
 // ── orchestrator ──────────────────────────────────────────────────────
+
+export interface RunSpecOptions {
+  onProgress?: (current: number, total: number) => void;
+  /**
+   * Check only one spec page, given as its 1-based position in `spec.pages`.
+   * Omit to check every page the spec declares.
+   */
+  specPageIndex?: number;
+  /**
+   * Check against this PDF page (1-based) instead of the one the spec names.
+   *
+   * A spec exported from a single sheet always says `"page": 1`, but the page it
+   * describes may sit anywhere in a long document. This lets a page be pointed at
+   * its real location without editing the spec — the report records both numbers
+   * so the mapping stays visible.
+   *
+   * Only meaningful together with `specPageIndex`.
+   */
+  pdfPageOverride?: number;
+}
+
 export async function runSpec(
   pdf: PDFDocumentProxy,
   spec: PdfSpec,
-  onProgress?: (current: number, total: number) => void,
+  options: RunSpecOptions | ((current: number, total: number) => void) = {},
 ): Promise<SpecReport> {
+  // The third argument used to be a bare progress callback; accept both so
+  // existing callers keep working.
+  const opts: RunSpecOptions = typeof options === 'function' ? { onProgress: options } : options;
+  const onProgress = opts.onProgress;
+
+  // Narrow to a single spec page when asked.
+  const selected =
+    opts.specPageIndex != null
+      ? spec.pages.slice(opts.specPageIndex - 1, opts.specPageIndex)
+      : spec.pages;
   const unit: SpecUnit = spec.units ?? 'in';
   const u2p = unitToPt(unit);
   const fmt = makeFmt(unit);
@@ -529,15 +560,19 @@ export async function runSpec(
   let passElements = 0;
   let elementCount = 0;
 
-  for (let idx = 0; idx < spec.pages.length; idx++) {
-    const sp = spec.pages[idx];
+  for (let idx = 0; idx < selected.length; idx++) {
+    const sp = selected[idx];
+    // An override only applies when a single page was selected; otherwise every
+    // page would be checked against the same one.
+    const pdfPage =
+      opts.specPageIndex != null && opts.pdfPageOverride != null ? opts.pdfPageOverride : sp.page;
     const results: ElementResult[] = [];
     let dataUrl: string | null = null;
     let widthPt = 0;
     let heightPt = 0;
 
-    if (sp.page >= 1 && sp.page <= pdf.numPages) {
-      const page = await pdf.getPage(sp.page);
+    if (pdfPage >= 1 && pdfPage <= pdf.numPages) {
+      const page = await pdf.getPage(pdfPage);
       const { items, widthPt: wp, heightPt: hp } = await extractItems(page);
       widthPt = wp;
       heightPt = hp;
@@ -557,7 +592,7 @@ export async function runSpec(
       for (const el of sp.elements) {
         results.push({
           id: el.id, type: el.type, label: el.label ?? el.id, status: 'not-found',
-          detail: `page ${sp.page} missing in PDF`, checks: [{ name: 'Page', expected: `page ${sp.page}`, actual: 'not in PDF', pass: false }],
+          detail: `page ${pdfPage} missing in PDF`, checks: [{ name: 'Page', expected: `page ${pdfPage}`, actual: `PDF has ${pdf.numPages} page(s)`, pass: false }],
           expectedBox: null, actualBox: null,
         });
       }
@@ -570,7 +605,7 @@ export async function runSpec(
     elementCount += results.length;
     passElements += results.filter((r) => r.status === 'pass').length;
 
-    pages.push({ page: sp.page, pageWidthPt: widthPt, pageHeightPt: heightPt, dataUrl, elements: results, passCount, failCount });
+    pages.push({ page: pdfPage, specPage: sp.page, pageWidthPt: widthPt, pageHeightPt: heightPt, dataUrl, elements: results, passCount, failCount });
     onProgress?.(idx + 1, spec.pages.length);
   }
 

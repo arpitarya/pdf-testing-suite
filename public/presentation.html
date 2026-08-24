@@ -1,0 +1,886 @@
+<title>PDF Comparison Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* Committed to a single light identity: this deck is projected, and it shares
+     the visual system of the project's other docs (manual.html, cli/docs.html).
+     Every colour is painted explicitly so it holds on any host ground. */
+  :root {
+    --paper: #fbfaf7;
+    --panel: #ffffff;
+    --sunk: #f3f1ea;
+    --ink: #1a1c22;
+    --ink-soft: #52545e;
+    --ink-faint: #8a8c95;
+    --line: #e6e2d8;
+    --line-strong: #d5cfc1;
+    --accent: #0e7c66;
+    --accent-soft: #e6f2ee;
+
+    /* The app's own category colours — used here as data, not decoration. */
+    --cat-text: #d97706;
+    --cat-style: #0891b2;
+    --cat-layout: #7c3aed;
+    --red: #c8402f;
+    --green: #157f5b;
+
+    --term: #1c1f26;
+    --term-line: #2c313b;
+
+    --display: "Fraunces", Georgia, serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── deck shell ─────────────────────────────────────────────────── */
+  .deck { height: 100%; overflow: hidden; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(32px, 5vw, 76px) clamp(28px, 7vw, 104px);
+    overflow-y: auto;
+  }
+  .slide.on { display: flex; }
+
+  /* Slide chrome */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: clamp(10px, 1vw, 12px);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(38px, 6.4vw, 82px);
+    line-height: 1.02;
+    letter-spacing: -.02em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(28px, 3.9vw, 52px);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .sub {
+    font-size: clamp(15px, 1.5vw, 20px);
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 26px;
+    line-height: 1.55;
+  }
+  p { line-height: 1.6; max-width: 66ch; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .88em;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+
+  /* ── navigation ─────────────────────────────────────────────────── */
+  .rail {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: var(--line);
+    z-index: 20;
+  }
+  .rail > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width .28s cubic-bezier(.4, 0, .2, 1);
+  }
+  .hud {
+    position: fixed;
+    right: clamp(14px, 2.4vw, 30px);
+    bottom: clamp(14px, 2.4vw, 26px);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    z-index: 21;
+  }
+  .hud button {
+    font: inherit;
+    color: var(--ink-soft);
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .hud button:hover { background: var(--sunk); color: var(--ink); }
+  .hud button:focus-visible,
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .count { font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+
+  /* ── reusable blocks ────────────────────────────────────────────── */
+  .cols { display: grid; gap: clamp(14px, 1.8vw, 22px); }
+  .c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 900px) {
+    .c2, .c3, .c4 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(15px, 1.7vw, 22px);
+  }
+  .card h3 {
+    font-size: clamp(15px, 1.35vw, 19px);
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  .card p { font-size: clamp(13px, 1.15vw, 15px); color: var(--ink-soft); margin: 0; }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+
+  /* category identity, straight from the engine */
+  .cat-text  { color: var(--cat-text);   background: color-mix(in srgb, var(--cat-text) 13%, transparent); }
+  .cat-style { color: var(--cat-style);  background: color-mix(in srgb, var(--cat-style) 13%, transparent); }
+  .cat-layout{ color: var(--cat-layout); background: color-mix(in srgb, var(--cat-layout) 13%, transparent); }
+  .b-text   { border-color: color-mix(in srgb, var(--cat-text) 40%, var(--line)); }
+  .b-style  { border-color: color-mix(in srgb, var(--cat-style) 40%, var(--line)); }
+  .b-layout { border-color: color-mix(in srgb, var(--cat-layout) 40%, var(--line)); }
+
+  /* terminal */
+  .term {
+    background: var(--term);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 18px rgba(26, 28, 34, .16);
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--term-line);
+  }
+  .term-bar i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .term-bar .r { background: #ec6a5e; }
+  .term-bar .y { background: #f4bf4f; }
+  .term-bar .g { background: #61c554; }
+  .term-bar span {
+    font-family: var(--mono); font-size: 10.5px; color: #7d8595; margin-left: 6px;
+  }
+  .term-body {
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: clamp(10.5px, 1.02vw, 13px);
+    line-height: 1.7;
+    color: #d5dae3;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .term-body .p { color: #6f7889; }
+  .term-body .cmd { color: #eaeef5; font-weight: 500; }
+  .term-body .ok { color: #6fd08c; }
+  .term-body .bad { color: #ff8b7a; }
+  .term-body .dim { color: #767f90; }
+  .term-body .hl { color: #c9a6ff; }
+  .term-body .am { color: #f0b45e; }
+  .term-body .cy { color: #5fd0e0; }
+  .term-body .vi { color: #b79cff; }
+
+  /* library rows */
+  .lib {
+    display: grid;
+    grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
+    gap: clamp(10px, 1.6vw, 26px);
+    padding: clamp(11px, 1.3vw, 16px) 0;
+    border-top: 1px solid var(--line);
+    align-items: start;
+  }
+  .lib:last-child { border-bottom: 1px solid var(--line); }
+  .lib dt { font-family: var(--mono); font-size: clamp(12px, 1.14vw, 15px); font-weight: 600; }
+  .lib dt small {
+    display: block;
+    font-weight: 400;
+    color: var(--ink-faint);
+    font-size: .82em;
+    margin-top: 3px;
+  }
+  .lib dd {
+    margin: 0;
+    font-size: clamp(12.5px, 1.15vw, 15.5px);
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .lib dd b { color: var(--ink); font-weight: 600; }
+
+  /* stat figures */
+  .figs { display: flex; flex-wrap: wrap; gap: clamp(18px, 3.4vw, 54px); margin-top: 8px; }
+  .fig .n {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(34px, 4.6vw, 62px);
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .fig .l {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 7px;
+  }
+
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 10px 10px 0;
+    padding: 13px 17px;
+    font-size: clamp(13px, 1.15vw, 15.5px);
+    line-height: 1.55;
+    max-width: 72ch;
+  }
+  .note b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: clamp(12px, 1.12vw, 15px); }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  svg { max-width: 100%; height: auto; display: block; }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  .kbd {
+    font-family: var(--mono);
+    font-size: 11px;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 7px;
+    background: var(--panel);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail > i { transition: none; }
+  }
+</style>
+
+<div class="deck" id="deck">
+
+  <!-- 1 ─ title -->
+  <section class="slide on">
+    <div class="eyebrow">Document QA tooling</div>
+    <h1>PDF&nbsp;Comparison Suite</h1>
+    <p class="sub">Catches what changed between a reference document and the one your
+      templates actually produced — and says whether it was the <strong>words</strong>, the
+      <strong>typography</strong>, or the <strong>layout</strong>.</p>
+    <div class="figs">
+      <div class="fig"><div class="n">4</div><div class="l">workspaces</div></div>
+      <div class="fig"><div class="n">3</div><div class="l">change categories</div></div>
+      <div class="fig"><div class="n">5</div><div class="l">report formats</div></div>
+      <div class="fig"><div class="n">3</div><div class="l">ways to run it</div></div>
+    </div>
+    <p style="margin-top:32px;color:var(--ink-faint);font-size:13px">
+      <span class="kbd">→</span> or <span class="kbd">space</span> to advance ·
+      <span class="kbd">←</span> to go back
+    </p>
+  </section>
+
+  <!-- 2 ─ problem -->
+  <section class="slide">
+    <div class="eyebrow">The problem</div>
+    <h2>“Looks fine to me”</h2>
+    <p class="sub">Templates get edited. Documents get regenerated. Somebody eyeballs a few
+      pages and signs off — and a font change on page 4 ships to customers.</p>
+    <div class="cols c3">
+      <div class="card">
+        <h3>Manual review doesn't scale</h3>
+        <p>A 6-page invoice has hundreds of text runs. Checking every one by eye, across
+          every template revision, is not work anyone does reliably twice.</p>
+      </div>
+      <div class="card">
+        <h3>“Different” isn't actionable</h3>
+        <p>Knowing 6% of pixels moved doesn't tell you what to fix. Was a word edited? A font
+          swapped? A block nudged? Each has a different fix.</p>
+      </div>
+      <div class="card">
+        <h3>Sometimes there's no reference</h3>
+        <p>New pages have nothing to compare against — only a spec saying what should be on
+          them, and where.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ─ workspaces -->
+  <section class="slide">
+    <div class="eyebrow">What's in the box</div>
+    <h2>Four workspaces</h2>
+    <p class="sub">One app, four jobs. Everything runs locally in the browser — no document
+      ever leaves the machine.</p>
+    <div class="cols c4">
+      <div class="card">
+        <h3>Compare PDFs</h3>
+        <p>Reference vs. generated, page by page. Highlights every difference in place and
+          rolls up to a pass/fail verdict against thresholds you set.</p>
+      </div>
+      <div class="card">
+        <h3>Test new pages</h3>
+        <p>No reference document — validate against a JSON spec instead. Checks text,
+          images, tables and paragraph spacing, positioned in inches.</p>
+      </div>
+      <div class="card">
+        <h3>Measurements</h3>
+        <p>Load one PDF, hover any element to measure its distance from the page edges, or
+          inspect a text run's font, size and weight.</p>
+      </div>
+      <div class="card">
+        <h3>Batch compare</h3>
+        <p>Many documents at once. Pair them up, run everything, get one combined report
+          covering every pair.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 ─ pipeline -->
+  <section class="slide">
+    <div class="eyebrow">How it works</div>
+    <h2>The comparison pipeline</h2>
+    <p class="sub">Every page goes through the same five stages. Both documents are
+      normalised into one coordinate space first, so every measurement is directly
+      comparable.</p>
+    <figure>
+      <svg viewBox="0 0 1000 210" role="img"
+           aria-label="Pipeline: load and render both PDFs, extract text runs, match runs between sides, classify each difference, then score against thresholds.">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#8a8c95" />
+          </marker>
+          <style>
+            .bx { fill:#ffffff; stroke:#d5cfc1; stroke-width:1.5; }
+            .bxa { fill:#e6f2ee; stroke:#0e7c66; stroke-width:1.5; }
+            .t { font-family:"IBM Plex Sans",sans-serif; font-size:14px; fill:#1a1c22; font-weight:600; }
+            .s { font-family:"IBM Plex Mono",monospace; font-size:11px; fill:#8a8c95; }
+            .ln { stroke:#8a8c95; stroke-width:1.5; fill:none; marker-end:url(#ar); }
+          </style>
+        </defs>
+
+        <rect class="bx" x="4" y="58" width="164" height="76" rx="11" />
+        <text class="t" x="24" y="88">1 · Render</text>
+        <text class="s" x="24" y="108">both pages to canvas</text>
+        <text class="s" x="24" y="124">~144 DPI, letterboxed</text>
+
+        <line class="ln" x1="174" y1="96" x2="204" y2="96" />
+
+        <rect class="bx" x="210" y="58" width="164" height="76" rx="11" />
+        <text class="t" x="230" y="88">2 · Extract</text>
+        <text class="s" x="230" y="108">every text run + box</text>
+        <text class="s" x="230" y="124">font, size, weight</text>
+
+        <line class="ln" x1="380" y1="96" x2="410" y2="96" />
+
+        <rect class="bx" x="416" y="58" width="164" height="76" rx="11" />
+        <text class="t" x="436" y="88">3 · Match</text>
+        <text class="s" x="436" y="108">pair runs across sides</text>
+        <text class="s" x="436" y="124">then diff by word</text>
+
+        <line class="ln" x1="586" y1="96" x2="616" y2="96" />
+
+        <rect class="bxa" x="622" y="50" width="164" height="92" rx="11" />
+        <text class="t" x="642" y="80">4 · Classify</text>
+        <text class="s" x="642" y="100">text · style · layout</text>
+        <text class="s" x="642" y="116">plus a pixel diff for</text>
+        <text class="s" x="642" y="132">changes with no text</text>
+
+        <line class="ln" x1="792" y1="96" x2="822" y2="96" />
+
+        <rect class="bx" x="828" y="58" width="168" height="76" rx="11" />
+        <text class="t" x="848" y="88">5 · Score</text>
+        <text class="s" x="848" y="108">against thresholds</text>
+        <text class="s" x="848" y="124">pass / fail per page</text>
+
+        <text class="s" x="4" y="180">Side A defines the target box; side B is scaled to fit it, so offsets between the two are directly comparable.</text>
+        <text class="s" x="4" y="198">All distances are reported in inches — the same unit AEM Forms XDP templates use for x, y, width and height.</text>
+      </svg>
+    </figure>
+  </section>
+
+  <!-- 5 ─ categories -->
+  <section class="slide">
+    <div class="eyebrow">The core idea</div>
+    <h2>Three kinds of difference</h2>
+    <p class="sub">Every difference lands in exactly one category. Which one it is tells you
+      what to go and fix.</p>
+    <div class="cols c3">
+      <div class="card b-text">
+        <span class="tag cat-text">Content</span>
+        <h3>The words changed</h3>
+        <p>A line, heading or paragraph was edited. Reported at <strong>word</strong>
+          granularity — <code>"approach"&nbsp;→&nbsp;"strategy"</code>, not the whole
+          sentence.</p>
+      </div>
+      <div class="card b-style">
+        <span class="tag cat-style">Style</span>
+        <h3>Same words, different type</h3>
+        <p>Font family, size, weight or slant changed while the text stayed identical.
+          <code>Helvetica&nbsp;→&nbsp;Helvetica-Bold</code>.</p>
+      </div>
+      <div class="card b-layout">
+        <span class="tag cat-layout">Layout</span>
+        <h3>Same words and type, moved</h3>
+        <p>The element is unchanged but sits somewhere else. Reported as the correction to
+          apply — <code>increase y by 0.250in</code>.</p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:24px">
+      <b>Precedence, when one element qualifies for more than one</b>
+      <strong>content &gt; style &gt; layout.</strong> The higher category explains the lower
+      one — editing a word changes its width, which shifts everything after it. Reporting the
+      consequence instead of the cause sends you to the wrong place, and reporting both
+      double-counts one change.
+    </div>
+  </section>
+
+  <!-- 6 ─ why it's hard -->
+  <section class="slide">
+    <div class="eyebrow">Why this is harder than it looks</div>
+    <h2>One word, bolded</h2>
+    <p class="sub">PDF viewers start a new text run wherever the font changes. Restyle a
+      single word and the whole line is re-cut — so a naïve comparison sees a deleted
+      sentence and three new ones.</p>
+    <div class="cols c2">
+      <div class="term">
+        <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>what the PDF actually contains</span></div>
+        <div class="term-body"><span class="dim">side A — 1 run</span>
+  "we took a different approach to this problem"
+
+<span class="dim">side B — 3 runs</span>
+  "we took a different "
+  <span class="hl">"approach"</span>          <span class="dim">← bold</span>
+  " to this problem"</div>
+      </div>
+      <div class="term">
+        <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>classification</span></div>
+        <div class="term-body"><span class="dim">naïve — compares runs as strings</span>
+  <span class="bad">removed</span>  "we took a different approach…"
+  <span class="bad">added</span>    "we took a different"
+  <span class="bad">added</span>    "approach"
+  <span class="bad">added</span>    "to this problem"
+  <span class="am">→ 3 content changes</span>
+
+<span class="dim">this tool — re-cuts into words</span>
+  <span class="cy">styled</span>   "approach"
+           <span class="dim">Helvetica → Helvetica-Bold</span>
+  <span class="cy">→ 1 style change</span></div>
+      </div>
+    </div>
+    <p style="margin:14px 0 0;color:var(--ink-soft);font-size:clamp(13px,1.1vw,15px)">
+      The give-away: the content-match score already read <strong>100%</strong> — the text
+      never changed. Leftover runs are re-cut into words and diffed word by word, so the
+      change list and the score agree.</p>
+  </section>
+
+  <!-- 7 ─ live example -->
+  <section class="slide">
+    <div class="eyebrow">Demo</div>
+    <h2>The bundled example</h2>
+    <p class="sub">A deliberately awkward 6-page invoice against a 5-page recreation, built
+      to exercise every code path. Load it from the empty state with one click.</p>
+    <table>
+      <thead>
+        <tr><th>Page</th><th>What it exercises</th><th class="num">Content</th><th class="num">Pixels</th><th>Reported as</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="num">1</td><td>Text edits plus a recoloured header bar</td><td class="num">95.8%</td><td class="num">6.52%</td><td><span class="tag cat-text" style="margin:0">3 content</span></td></tr>
+        <tr><td class="num">2</td><td>A column nudged right, a table row deleted</td><td class="num">92.9%</td><td class="num">0.21%</td><td><span class="tag cat-text" style="margin:0">8 content</span> <span class="tag cat-layout" style="margin:0">31 layout</span></td></tr>
+        <tr><td class="num">3</td><td>Identical — jump-to-change skips it</td><td class="num">100%</td><td class="num">0.00%</td><td><span style="color:var(--green);font-weight:600">pass</span></td></tr>
+        <tr><td class="num">4</td><td>Vector chart, no text layer at all</td><td class="num">100%</td><td class="num">1.48%</td><td>pixel-only</td></tr>
+        <tr><td class="num">5</td><td>Landscape vs. portrait — letterboxed</td><td class="num">83.9%</td><td class="num">9.92%</td><td><span class="tag cat-text" style="margin:0">4 content</span> <span class="tag cat-layout" style="margin:0">5 layout</span></td></tr>
+        <tr><td class="num">6</td><td>Exists only in the original</td><td class="num">—</td><td class="num">—</td><td><span style="color:var(--red);font-weight:600">missing</span></td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:18px;color:var(--ink-soft);font-size:clamp(13px,1.1vw,15px)">
+      Page 4 is the interesting one: <strong>no text changed at all</strong>, so only the
+      pixel diff catches it. Page 2 shows the split working — 8 real edits, cleanly separated
+      from the 31 rows they pushed down.</p>
+  </section>
+
+  <!-- 8 ─ spec mode -->
+  <section class="slide">
+    <div class="eyebrow">When there's no reference</div>
+    <h2>Test against a spec</h2>
+    <p class="sub">Describe what a page should contain in JSON — text, images, tables,
+      paragraph spacing, positioned in inches — and check a generated PDF against it.</p>
+    <div class="cols c2">
+      <div class="term">
+        <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>spec.json</span></div>
+        <div class="term-body"><span class="dim">{</span>
+  <span class="hl">"type"</span>: <span class="ok">"image"</span>,
+  <span class="hl">"id"</span>: <span class="ok">"brand-logo"</span>,
+  <span class="hl">"top"</span>: 0.55, <span class="hl">"left"</span>: 6.4,
+  <span class="hl">"width"</span>: 1.6, <span class="hl">"height"</span>: 0.6,
+  <span class="hl">"anchor"</span>: <span class="dim">{</span>
+    <span class="hl">"text"</span>: <span class="ok">"MONTHLY STATEMENT"</span>,
+    <span class="hl">"position"</span>: <span class="ok">"right"</span>
+  <span class="dim">}</span>
+<span class="dim">}</span></div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:14px">
+          <h3>Anchors beat coordinates</h3>
+          <p>An image has no text to search for, so without an anchor it can only be found by
+            proximity — and latches onto a neighbour when the layout reflows. An anchor ties
+            it to a label the page actually shows.</p>
+        </div>
+        <div class="card">
+          <h3>Found, then judged</h3>
+          <p>Position is still asserted. A correct anchor with a wrong position reports
+            <code>Top: FAIL</code> and tells you by how much — instead of an unhelpful
+            <code>not-found</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 ─ reports -->
+  <section class="slide">
+    <div class="eyebrow">Output</div>
+    <h2>Five ways to read the result</h2>
+    <div class="cols c3">
+      <div class="card">
+        <h3>HTML report</h3>
+        <p>Annotated pages, the pixel-diff heatmap colour-coded by category, before→after
+          labels, and a per-page change list. Print to PDF to share.</p>
+      </div>
+      <div class="card">
+        <h3>JUnit XML</h3>
+        <p>One testsuite per document, one testcase per page. Jenkins and GitLab render it
+          natively — per-page history and “what newly broke” for free.</p>
+      </div>
+      <div class="card">
+        <h3>JSON &amp; CSV</h3>
+        <p>Every metric, verdict and breached threshold for scripts; one row per document ×
+          page for spreadsheets.</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:18px;background:var(--accent-soft);border-color:color-mix(in srgb, var(--accent) 26%, transparent)">
+      <h3>Markdown fix-list — written for an AI agent, not a person</h3>
+      <p style="color:var(--ink)">Every finding paired with the change needed in the
+        <strong>source template</strong>. Positions in inches and font sizes in points, so
+        values map straight onto AEM Forms XDP attributes. Deltas are given as the correction
+        to apply, never the drift observed. Cascading shifts are grouped by shared delta — a
+        deleted table row reads as <strong>one</strong> finding instead of thirty.</p>
+    </div>
+  </section>
+
+  <!-- 10 ─ automation -->
+  <section class="slide">
+    <div class="eyebrow">Automation</div>
+    <h2>Same engine, from the command line</h2>
+    <p class="sub">The CLI imports the app's own comparison services and swaps the browser
+      canvas for a Node one. It doesn't reimplement anything — so a CLI verdict is the
+      verdict the app would show.</p>
+    <div class="term">
+      <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>bash</span></div>
+      <div class="term-body"><span class="p">$ </span><span class="cmd">pdfsuite generate --payloads ./payloads --out ./candidates</span>
+<span class="ok">  ✓  invoice-standard</span> — 12.3KB in 45ms
+<span class="dim">  …  3 in flight · longest acme-invoice 30.0s · 3/8 done · ETA ~60s</span>
+
+<span class="p">$ </span><span class="cmd">pdfsuite compare -r ./golden -c ./candidates -P ./pairs.json -o ./reports</span>
+<span class="dim">[1/3]</span> invoice-standard …  <span class="bad">FAIL</span> · 6 pages, 4 failing
+<span class="dim">[2/3]</span> invoice-identical …  <span class="ok">PASS</span> · 6 pages
+<span class="dim">  wrote reports/report.html · report.json · junit.xml · remediation.md</span>
+
+<span class="p">$ </span><span class="cmd">echo $?</span>
+<span class="bad">1</span>   <span class="dim">0 = passed · 1 = PDFs regressed · 2 = the job is broken</span></div>
+    </div>
+    <p style="margin-top:18px;color:var(--ink-soft);font-size:clamp(13px,1.1vw,15px)">
+      Separating exit <strong>1</strong> from <strong>2</strong> is what lets a pipeline tell
+      “the documents changed” from “the build is broken”. There's a Python CLI too —
+      <code>pdfsuitepy</code> — with zero third-party dependencies.</p>
+  </section>
+
+  <!-- 11 ─ core libraries -->
+  <section class="slide">
+    <div class="eyebrow">Libraries · 1 of 2</div>
+    <h2>The three that do the work</h2>
+    <p class="sub">Everything the tool concludes traces back to these. The rest is
+      plumbing.</p>
+    <dl style="margin:0">
+      <div class="lib">
+        <dt>pdfjs-dist <small>Mozilla · 4.7</small></dt>
+        <dd><b>Reads the PDF.</b> Rasterises each page to a canvas at ~144 DPI, and extracts
+          every text run with its transform matrix — position, font size — plus the font it
+          was drawn with. Font names come from its resolved font objects, which is how
+          <span style="color:var(--cat-style)">bold / italic / family</span> changes are
+          detected at all. It's also the source of the run-splitting quirk on the previous
+          slide.</dd>
+      </div>
+      <div class="lib">
+        <dt>pixelmatch <small>Mapbox · 5.3</small></dt>
+        <dd><b>Compares the two images.</b> A perceptual pixel diff with an adjustable
+          threshold and anti-aliasing detection, returning a changed-pixel count and a
+          heatmap. This is what catches differences with <b>no text delta at all</b> — a
+          recoloured bar, a shifted rule, a redrawn chart.</dd>
+      </div>
+      <div class="lib">
+        <dt>diff <small>jsdiff · 5.2</small></dt>
+        <dd><b>Compares the text.</b> Used twice: <code>diffWords</code> scores the page-level
+          content match, and <code>diffArrays</code> produces the word-level change list —
+          multiple edits on one line stay separate findings instead of merging into one
+          replaced sentence.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 12 ─ supporting stack -->
+  <section class="slide">
+    <div class="eyebrow">Libraries · 2 of 2</div>
+    <h2>The supporting stack</h2>
+    <dl style="margin:0">
+      <div class="lib">
+        <dt>React + TypeScript <small>18.3 · 5.6</small></dt>
+        <dd>The four workspaces. TypeScript matters more than usual here: the engine's types
+          are shared by the UI, the CLI and the report writers, so a change to the comparison
+          model can't quietly break one of them.</dd>
+      </div>
+      <div class="lib">
+        <dt>Zustand <small>4.5</small></dt>
+        <dd>Application state — loaded documents, the per-page comparison cache, thresholds,
+          view mode. Chosen over Context so a single page's result landing doesn't re-render
+          the whole tree.</dd>
+      </div>
+      <div class="lib">
+        <dt>Vite <small>5.4</small></dt>
+        <dd>Dev server and production build.</dd>
+      </div>
+      <div class="lib">
+        <dt>@napi-rs/canvas <small>0.1</small></dt>
+        <dd><b>Makes the browser engine run headlessly.</b> Provides canvas, <code>Image</code>
+          and <code>ImageData</code> to Node so the app's own rendering code works unchanged
+          in the CLI. Ships prebuilt binaries — no Cairo, no build toolchain on the agent.</dd>
+      </div>
+      <div class="lib">
+        <dt>esbuild <small>0.24</small></dt>
+        <dd>Bundles the CLI, and hosts the two shims that let browser code run under Node —
+          resolving Vite's <code>?url</code> imports and pointing pdf.js at its Node build.</dd>
+      </div>
+      <div class="lib">
+        <dt>Commander · Express <small>12 · 4.21</small></dt>
+        <dd>Command parsing and help output; and a small mock render API so the whole
+          generate→compare loop can be exercised locally without a real backend.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 13 ─ architecture -->
+  <section class="slide">
+    <div class="eyebrow">Architecture</div>
+    <h2>One engine, three front ends</h2>
+    <p class="sub">The comparison logic exists once. The browser app, the Node CLI and the
+      Python CLI are all thin layers over it — which is why they can never disagree about the
+      same pair of documents.</p>
+    <figure>
+      <svg viewBox="0 0 900 250" role="img"
+           aria-label="Architecture: a single comparison engine used by the React app, the Node CLI, and the Python CLI, which delegates to the Node CLI.">
+        <defs>
+          <marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#8a8c95" />
+          </marker>
+          <style>
+            .bb { fill:#ffffff; stroke:#d5cfc1; stroke-width:1.5; }
+            .be { fill:#e6f2ee; stroke:#0e7c66; stroke-width:2; }
+            .tt { font-family:"IBM Plex Sans",sans-serif; font-size:14px; fill:#1a1c22; font-weight:600; }
+            .ss { font-family:"IBM Plex Mono",monospace; font-size:11px; fill:#8a8c95; }
+            .l2 { stroke:#8a8c95; stroke-width:1.5; fill:none; marker-end:url(#ar2); }
+          </style>
+        </defs>
+
+        <rect class="be" x="290" y="8" width="320" height="76" rx="12" />
+        <text class="tt" x="316" y="38">Comparison engine</text>
+        <text class="ss" x="316" y="58">render · extract · match · classify</text>
+        <text class="ss" x="316" y="74">src/services/ — one implementation</text>
+
+        <path class="l2" d="M400,88 L400,116 L150,116 L150,148" />
+        <path class="l2" d="M450,88 L450,148" />
+        <path class="l2" d="M500,88 L500,116 L750,116 L750,148" />
+
+        <rect class="bb" x="52" y="154" width="196" height="72" rx="11" />
+        <text class="tt" x="74" y="182">React app</text>
+        <text class="ss" x="74" y="202">four workspaces</text>
+        <text class="ss" x="74" y="218">runs in the browser</text>
+
+        <rect class="bb" x="352" y="154" width="196" height="72" rx="11" />
+        <text class="tt" x="374" y="182">Node CLI</text>
+        <text class="ss" x="374" y="202">pdfsuite</text>
+        <text class="ss" x="374" y="218">canvas swapped for Node</text>
+
+        <rect class="bb" x="652" y="154" width="196" height="72" rx="11" />
+        <text class="tt" x="674" y="182">Python CLI</text>
+        <text class="ss" x="674" y="202">pdfsuitepy</text>
+        <text class="ss" x="674" y="218">delegates · zero deps</text>
+      </svg>
+      <figcaption>the engine is imported, never copied — a fork would let the tools disagree</figcaption>
+    </figure>
+  </section>
+
+  <!-- 14 ─ verification -->
+  <section class="slide">
+    <div class="eyebrow">How we know it's right</div>
+    <h2>Classification is pinned by tests</h2>
+    <p class="sub">Purpose-built PDF pairs, each isolating one kind of change, assert which
+      category it lands in — and that no single element ever lands in two.</p>
+    <div class="figs" style="margin-bottom:26px">
+      <div class="fig"><div class="n" style="color:var(--green)">24</div><div class="l">cases, all passing</div></div>
+      <div class="fig"><div class="n">0</div><div class="l">elements in two categories</div></div>
+      <div class="fig"><div class="n">6</div><div class="l">sample pages pinned</div></div>
+    </div>
+    <div class="cols c3">
+      <div class="card"><h3>Each category alone</h3><p>Word edited · heading edited · bold ·
+        italic · family · size · moved down, right, both.</p></div>
+      <div class="card"><h3>Every combination</h3><p>Text + style, text + move, style + move,
+        and all three at once — the right category wins each time.</p></div>
+      <div class="card"><h3>The awkward ones</h3><p>Cascades, duplicate text with one copy
+        restyled, capitalisation changes, a word deleted mid-line.</p></div>
+    </div>
+    <div class="term" style="margin-top:20px">
+      <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>npm run verify</span></div>
+      <div class="term-body"><span class="dim">style-midword         style      style       OK   </span><span class="cy">styled:"approach"</span>
+<span class="dim">cascade-text          text,layout text,layout OK   </span><span class="am">removed:"report"</span> <span class="vi">moved:"Section one"</span>
+<span class="dim">word-deleted-midline  text       text        OK   </span><span class="am">removed:"beta"</span>
+
+  <span class="ok">24/24 categorised correctly</span>
+  <span class="ok">no element appears in two buckets</span></div>
+    </div>
+  </section>
+
+  <!-- 15 ─ close -->
+  <section class="slide">
+    <div class="eyebrow">Try it</div>
+    <h2>Open it and press one button</h2>
+    <p class="sub">The app ships with the example documents built in. No setup, no upload,
+      nothing leaves your machine.</p>
+    <div class="cols c2">
+      <div class="term">
+        <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>bash</span></div>
+        <div class="term-body"><span class="p">$ </span><span class="cmd">npm install</span>
+<span class="p">$ </span><span class="cmd">npm run dev</span>
+<span class="dim">  → http://localhost:5173</span>
+
+<span class="dim">  then click</span> <span class="ok">“Load example invoices”</span></div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <h3>Further reading, all offline</h3>
+          <p><code>public/manual.html</code> — full feature reference<br />
+             <code>cli/docs.html</code> — the command line guide<br />
+             <code>cli-py/docs.html</code> — the Python package<br />
+             <code>spec-standard.md</code> — the JSON spec format</p>
+        </div>
+        <div class="note">
+          <b>One thing to plan for</b>
+          Font substitution. If a machine lacks a font the document uses, the renderer
+          substitutes one and every measurement shifts at once. Pin comparison runs to a
+          container with a known font set before blessing a large set of references.
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="rail"><i id="bar"></i></div>
+<div class="hud">
+  <button id="prev" aria-label="Previous slide">‹</button>
+  <button id="next" aria-label="Next slide">›</button>
+  <span class="count" id="count"></span>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var bar = document.getElementById('bar');
+    var count = document.getElementById('count');
+    var i = 0;
+
+    function show(n) {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+      bar.style.width = ((i + 1) / slides.length * 100) + '%';
+      count.textContent = (i + 1) + ' / ' + slides.length;
+      if (location.hash !== '#' + (i + 1)) history.replaceState(null, '', '#' + (i + 1));
+      slides[i].scrollTop = 0;
+    }
+
+    document.getElementById('next').addEventListener('click', function () { show(i + 1); });
+    document.getElementById('prev').addEventListener('click', function () { show(i - 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+      else if (e.key === 'Home') { e.preventDefault(); show(0); }
+      else if (e.key === 'End') { e.preventDefault(); show(slides.length - 1); }
+    });
+
+    var start = parseInt((location.hash || '').slice(1), 10);
+    show(isNaN(start) ? 0 : start - 1);
+  })();
+</script>

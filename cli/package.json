@@ -9,7 +9,12 @@
   "scripts": {
     "build": "node build.mjs",
     "mock-api": "node mock-api/server.js",
-    "spike": "node build.mjs --entry spike/run-engine.ts --out .work/spike.js && node .work/spike.js"
+    "spike": "node build.mjs --entry spike/run-engine.ts --out .work/spike.js && node .work/spike.js",
+    "verify:classification": "python verify/make-cases.py && node build.mjs --entry verify/classification.ts --out .work/classification.js && node .work/classification.js",
+    "verify:regression": "node build.mjs --entry verify/regression.ts --out .work/regression.js && node .work/regression.js",
+    "verify": "npm run verify:classification && npm run verify:regression && npm run verify:spec",
+    "verify:detail": "node build.mjs --entry verify/detail.ts --out .work/detail.js && node .work/detail.js",
+    "verify:spec": "node build.mjs --entry verify/spec-target.ts --out .work/spec-target.js && node .work/spec-target.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",

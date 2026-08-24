@@ -123,6 +123,13 @@ export default function SpecTestView() {
   const loadExample = useSpecStore((s) => s.loadExample);
   const pdfDoc = useSpecStore((s) => s.pdfDoc);
   const spec = useSpecStore((s) => s.spec);
+  const pdfPageCount = useSpecStore((s) => s.pdfPageCount);
+  const mode = useSpecStore((s) => s.mode);
+  const targetPdfPage = useSpecStore((s) => s.targetPdfPage);
+  const targetSpecPage = useSpecStore((s) => s.targetSpecPage);
+  const setMode = useSpecStore((s) => s.setMode);
+  const setTargetPdfPage = useSpecStore((s) => s.setTargetPdfPage);
+  const setTargetSpecPage = useSpecStore((s) => s.setTargetSpecPage);
 
   const [hovered, setHovered] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,6 +175,88 @@ export default function SpecTestView() {
           )}
         </div>
       </div>
+
+      {pdfDoc && spec && (
+        <div className="spec-target">
+          <div className="tabs" role="group" aria-label="What to check">
+            <button
+              className={`tab ${mode === 'all' ? 'active' : ''}`}
+              onClick={() => setMode('all')}
+              title="Check every page the spec declares, at the page number it declares"
+            >
+              All pages
+            </button>
+            <button
+              className={`tab ${mode === 'single' ? 'active' : ''}`}
+              onClick={() => setMode('single')}
+              title="Check one spec page against one page of this PDF"
+            >
+              One page
+            </button>
+          </div>
+
+          {mode === 'all' ? (
+            <span className="target-hint">
+              Checking {spec.pages.length} spec page{spec.pages.length === 1 ? '' : 's'} at the
+              page number{spec.pages.length === 1 ? '' : 's'} the spec declares
+              {' '}({spec.pages.map((p) => p.page).join(', ')}).
+            </span>
+          ) : (
+            <>
+              <div className="target-pick">
+                <span className="target-label">PDF page</span>
+                <div className="zoom-group">
+                  <button
+                    className="zoombtn"
+                    onClick={() => setTargetPdfPage(targetPdfPage - 1)}
+                    disabled={targetPdfPage <= 1}
+                    aria-label="Previous PDF page"
+                  >−</button>
+                  <input
+                    className="target-num"
+                    type="number"
+                    min={1}
+                    max={pdfPageCount}
+                    value={targetPdfPage}
+                    onChange={(e) => setTargetPdfPage(Number(e.target.value))}
+                    aria-label="PDF page to check"
+                  />
+                  <button
+                    className="zoombtn"
+                    onClick={() => setTargetPdfPage(targetPdfPage + 1)}
+                    disabled={targetPdfPage >= pdfPageCount}
+                    aria-label="Next PDF page"
+                  >+</button>
+                </div>
+                <span className="target-of">of {pdfPageCount}</span>
+              </div>
+
+              {spec.pages.length > 1 && (
+                <div className="target-pick">
+                  <span className="target-label">against spec page</span>
+                  <select
+                    className="target-select"
+                    value={targetSpecPage}
+                    onChange={(e) => setTargetSpecPage(Number(e.target.value))}
+                    aria-label="Spec page to check against"
+                  >
+                    {spec.pages.map((p, i) => (
+                      <option key={i} value={i + 1}>
+                        #{i + 1} — declares page {p.page} · {p.elements.length} element
+                        {p.elements.length === 1 ? '' : 's'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <span className="target-map">
+                spec page {spec.pages[targetSpecPage - 1]?.page ?? '?'} → PDF page {targetPdfPage}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {report && report.pages.length > 1 && (
         <div className="pagestrip">
@@ -233,7 +322,12 @@ export default function SpecTestView() {
             {/* Results */}
             <div className="spec-results">
               <div className="spec-summary card section-pad">
-                <b>Page {page.page}</b>
+                <b>PDF page {page.page}</b>
+                {page.specPage !== page.page && (
+                  <span className="remap-note" title="This spec page was pointed at a different PDF page">
+                    spec page {page.specPage} → PDF page {page.page}
+                  </span>
+                )}
                 <span className={`chip ${page.failCount === 0 ? 'added' : 'removed'}`}>
                   {page.passCount} passed · {page.failCount} failed
                 </span>
