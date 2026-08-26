@@ -11,6 +11,7 @@ import type {
 } from '../types/compare';
 import { comparePage, loadPdf } from '../services/pdfCompare';
 import { pageHasChange } from '../services/changes';
+import type { ExportThresholds } from '../services/exportReport';
 
 export interface LoadedSide {
   name: string;
@@ -68,6 +69,12 @@ interface CompareState {
   computingSummary: boolean;
   summaryProgress: { current: number; total: number } | null;
   computeAll: () => Promise<void>;
+
+  // Pass/fail thresholds for the report and every export. Held in the store
+  // rather than in CompareReport because the export menu now lives in the app
+  // header, outside that component's tree, and must agree with what the table shows.
+  reportThresholds: ExportThresholds;
+  setReportThreshold: <K extends keyof ExportThresholds>(key: K, value: ExportThresholds[K]) => void;
 }
 
 export const useCompareStore = create<CompareState>((set, get) => ({
@@ -289,6 +296,11 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       computingSummary: false,
       summaryProgress: null,
     });
+  },
+
+  reportThresholds: { contentPct: 99, pixelPct: 2, offsetIn: 0.03 },
+  setReportThreshold(key, value) {
+    set({ reportThresholds: { ...get().reportThresholds, [key]: value } });
   },
 }));
 

@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
+import { flags } from '../../flags';
 import type { LayoutViewMode, MatchedPair, RenderedPageImage, TextItem } from '../../types/compare';
 import { useCompareStore } from '../../store/compareStore';
 import {
@@ -21,7 +23,7 @@ function pixelClass(ratio: number): string {
   return 'bad';
 }
 
-// Friendly, direction-worded shift labels (B relative to A), in inches.
+// Friendly, direction-worded shift labels (tested PDF relative to golden), in inches.
 function hShift(dx: number, ppi: number): string {
   if (Math.abs(dx / ppi) < 0.005) return 'aligned';
   return `${fmtInch(Math.abs(dx), ppi)} ${dx > 0 ? 'right' : 'left'}`;
@@ -212,6 +214,8 @@ export default function LayoutCompareView() {
           </>
         )}
 
+        {viewMode === 'side-by-side' && flags.annotations && <AnnotationToolbar page={currentPage} />}
+
         <div className="spacer" />
 
         {/* Zoom controls */}
@@ -264,9 +268,10 @@ export default function LayoutCompareView() {
             <div className="stage-sbs">
               {pc.imageA ? (
                 <div className="lay-img-wrap" style={{ width: dispW, height: dispH }}>
-                  <img src={pc.imageA.dataUrl} alt="A" style={{ width: dispW, height: dispH }} />
+                  <img src={pc.imageA.dataUrl} alt="Golden PDF" style={{ width: dispW, height: dispH }} />
                   <RunHotspots runs={matched} side="A" image={pc.imageA} onHover={hoverFromImage} />
                   <RunHighlight box={hovered?.a} image={pc.imageA} />
+                  {flags.annotations && <AnnotationLayer page={currentPage} side="A" />}
                 </div>
               ) : (
                 <div className="page-missing" style={{ width: dispW, height: dispH }}>
@@ -275,9 +280,10 @@ export default function LayoutCompareView() {
               )}
               {pc.imageB ? (
                 <div className="lay-img-wrap" style={{ width: dispW, height: dispH }}>
-                  <img src={pc.imageB.dataUrl} alt="B" style={{ width: dispW, height: dispH }} />
+                  <img src={pc.imageB.dataUrl} alt="PDF to test" style={{ width: dispW, height: dispH }} />
                   <RunHotspots runs={matched} side="B" image={pc.imageB} onHover={hoverFromImage} />
                   <RunHighlight box={hovered?.b} image={pc.imageB} />
+                  {flags.annotations && <AnnotationLayer page={currentPage} side="B" />}
                 </div>
               ) : (
                 <div className="page-missing" style={{ width: dispW, height: dispH }}>
@@ -313,7 +319,7 @@ export default function LayoutCompareView() {
       {/* Geometry table */}
       <div className="geo-panel">
         <div className="geo-head">
-          <span title="How far each shared text run sits in B compared to where it was in A.">
+          <span title="How far each shared text run sits in the PDF under test compared to where it was in the golden PDF.">
             Text position shifts · {pc.match.matched.length} runs matched · largest shift{' '}
             {fmtInch(pc.maxOffset, pc.pxPerInch)}
           </span>

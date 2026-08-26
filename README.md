@@ -2,18 +2,18 @@
 
 A React app with four workspaces:
 
-- **Compare PDFs** — compare a recreated PDF against a reference by **content** (text on every page),
+- **Compare 2 PDFs** — compare a recreated PDF against a reference by **content** (text on every page),
   **layout** (pixel-level visual diff + precise text-position offsets), and a roll-up **pass/fail
   report** — then **export** the results.
-- **Test new pages** — when there's no reference PDF, only a **JSON spec**, validate a generated PDF
+- **Spec driven comparison** — when there's no reference PDF, only a **JSON spec**, validate a generated PDF
   against the spec (expected static text, image sizes/positions, table position/width, paragraph line
   spacing) with an annotated pass/fail report.
-- **Measurements** — load a single PDF, hover any element to highlight it, and click to inspect it. The
+- **Utilities** — load a single PDF, hover any element to highlight it, and click to inspect it. The
   **Position** sub-tab measures distance from the page edges (with guide lines) in inches; the **Font &
   paragraph** sub-tab reports a text run's font, size, weight/style, and line height.
 - **Batch compare** — add many PDFs to Side A and Side B, choose which A file pairs with which B file,
   and run every comparison in one go. See a per-pair pass/fail overview, drill into any pair (opens it in
-  **Compare PDFs**), and export a combined **HTML / JSON / CSV** report covering all pairs' differences.
+  **Compare 2 PDFs**), and export a combined **HTML / JSON / CSV** report covering all pairs' differences.
   The HTML export stays fully visual (rendered pages + pixel-diff heatmaps) even for large batches — raw
   pixel buffers are released after each page is scored, and images are downscaled/compressed at export
   time so file size stays manageable regardless of how many pairs or pages are included.
@@ -82,9 +82,9 @@ Report tab to see it flip to FAIL.
   (content ≥ %, pixels ≤ %, offset ≤ px), and shows an overall PASS/FAIL verdict. Rows drill into
   the Layout view.
 
-## Test new pages (validate against a JSON spec)
+## Spec driven comparison (validate against a JSON spec)
 
-Switch to the **Test new pages** workspace when you don't have a reference PDF — only a design spec.
+Switch to the **Spec driven comparison** workspace when you don't have a reference PDF — only a design spec.
 Upload the generated **PDF** and a **JSON spec**, and the checker validates the PDF against it,
 element by element, with an annotated pass/fail report you can export.
 
@@ -109,7 +109,15 @@ Export the result as an **HTML report** (annotated pages + checks) or **JSON**.
 
 ## Export
 
-From the Report tab, the **Export** menu produces:
+The **Export** menu sits in the top right of the window and is available from every
+workspace that produces results. It is disabled, not hidden, until there is something
+to export. It produces:
+
+The Report tab also has a **&#128065; View reports** button, which opens the HTML report and the
+Markdown fix-list in a full-screen preview so you can read them without downloading
+anything first. The HTML report renders in a sandboxed iframe (with a **Print** button
+for *Save as PDF*); the Markdown is rendered with `marked` and sanitised with `DOMPurify`.
+Either can be downloaded from the preview toolbar.
 
 | Format | Contents |
 |--------|----------|
@@ -117,13 +125,50 @@ From the Report tab, the **Export** menu produces:
 | **JSON** | Full machine-readable metrics, thresholds, and per-page pass/fail. |
 | **CSV** | Per-page metrics table for spreadsheets. |
 | **Markdown fix-list** | A remediation report written for an **AI agent** rather than a person: every difference paired with the change needed in the *source template*. Positions are in inches and font sizes in points, matching AEM Forms XDP (XFA) `x`/`y`/`<font size>` attributes, and deltas are given as the correction to apply rather than the drift observed. Cascading shifts are grouped by shared delta, so one deleted table row reads as a single finding instead of thirty. |
+| **ZIP bundle** | Everything above in one archive, plus the **annotated PDFs**. Layout: `reports/` (HTML, Markdown, JSON, CSV, `comments.md`), `annotated-pdfs/` (both PDFs with comment pins stamped on), and `manifest.json` listing the run's verdict and contents. Requires `FEATURE_EXPORT_ZIP`. |
+
+## Annotations
+
+With `FEATURE_ANNOTATIONS` on, the **Content** and **Layout → side by side** views gain an
+**Add comment** button. Click it, then click anywhere on either page to drop a numbered
+pin and type a comment. Pins are stored as a fraction of the page, so they stay put when
+you zoom, and each side of each page is numbered independently.
+
+Comments travel into the **ZIP bundle** two ways:
+
+- `reports/comments.md` — a plain table, readable without opening a PDF.
+- `annotated-pdfs/*.pdf` — the **original** PDF (not a screenshot) with each pin drawn on
+  the page *and* attached as a real PDF text annotation, so Acrobat and other readers list
+  them in the review panel. A summary page listing every comment is appended at the end.
+
+## Feature flags
+
+Features are switched on and off from **`flag.env`** at the repo root — plain `KEY=value`,
+`#` for comments:
+
+```
+FEATURE_ANNOTATIONS=true
+FEATURE_EXPORT_ZIP=true
+```
+
+Truthy values are `true`, `1`, `on`, `yes`, `enabled` (case-insensitive); anything else is
+false. A key that is missing or misspelled falls back to the default in
+[`src/flags.ts`](src/flags.ts) and logs a warning rather than silently disabling the feature.
+
+The file is read by a small Vite plugin ([`vite.config.ts`](vite.config.ts)) and exposed to
+the app as the virtual module `virtual:feature-flags`. While `npm run dev` is running, saving
+`flag.env` reloads the browser with the new values — **no server restart needed**. For a
+production build the values are read at build time, so rebuild after changing them.
+
+To add a flag: add the key to `flag.env`, then add a field, default, and key mapping to
+`src/flags.ts`. Read it as `flags.myFeature` — never touch `import.meta.env` for this.
 
 ## Architecture
 
 ```
 src/
   types/compare.ts              Shared interfaces (no React)
-  types/spec.ts                 Spec + result interfaces for "Test new pages"
+  types/spec.ts                 Spec + result interfaces for "Spec driven comparison"
   services/pdfCompare.ts        Compare engine: loadPdf, comparePage, diff/match/pixel helpers
   services/exportReport.ts      Compare JSON / CSV / HTML exporters
   services/specCheck.ts         Spec engine: extract text/images (points), evaluate elements

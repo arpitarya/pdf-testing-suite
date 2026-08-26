@@ -1,15 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useBatchStore, type BatchFile, type BatchPair } from '../../store/batchStore';
 import { useCompareStore } from '../../store/compareStore';
-import {
-  pairVerdict,
-  worst,
-  exportBatchHtml,
-  exportBatchJson,
-  exportBatchCsv,
-  exportBatchMarkdown,
-  type BatchPairExport,
-} from '../../services/batchExport';
+import { pairVerdict, worst } from '../../services/batchExport';
 
 // ── multi-file upload column ──────────────────────────────────────────
 function MultiUpload({ side }: { side: 'A' | 'B' }) {
@@ -22,8 +14,8 @@ function MultiUpload({ side }: { side: 'A' | 'B' }) {
   return (
     <div className="batch-col">
       <div className="batch-col-head">
-        <span className={`stag ${side === 'A' ? 'a' : 'b'}`}>{side}</span>
-        Side {side} files
+        <span className={`stag ${side === 'A' ? 'a' : 'b'}`}>{side === 'A' ? 'GOLDEN' : 'TEST'}</span>
+        {side === 'A' ? 'Golden PDFs' : 'PDFs to test'}
         <span className="cnt">{files.length}</span>
       </div>
       <div
@@ -62,12 +54,12 @@ function PairRow({ pair, idx }: { pair: BatchPair; idx: number }) {
     <div className="pair-row">
       <span className="pr-idx">{idx + 1}</span>
       <select className="pr-sel a" value={pair.aId ?? ''} onChange={(e) => setPairSide(pair.id, 'A', e.target.value || null)}>
-        <option value="">— choose Side A —</option>
+        <option value="">— choose golden PDF —</option>
         {filesA.map((f) => (<option key={f.id} value={f.id}>{f.name}</option>))}
       </select>
       <span className="pr-arrow">→</span>
       <select className="pr-sel b" value={pair.bId ?? ''} onChange={(e) => setPairSide(pair.id, 'B', e.target.value || null)}>
-        <option value="">— choose Side B —</option>
+        <option value="">— choose PDF to test —</option>
         {filesB.map((f) => (<option key={f.id} value={f.id}>{f.name}</option>))}
       </select>
       <span className="spacer" />
@@ -94,39 +86,9 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
   const error = useBatchStore((s) => s.error);
   const adoptPair = useCompareStore((s) => s.adoptPair);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
   const fileById = (side: 'A' | 'B', id: string | null) => (id ? (side === 'A' ? filesA : filesB).find((f) => f.id === id) ?? null : null);
   const validPairs = pairs.filter((p) => p.aId && p.bId);
   const hasFiles = filesA.length > 0 || filesB.length > 0;
-
-  // Export payload from pairs that have results.
-  const exportPairs: BatchPairExport[] = useMemo(() => {
-    let idx = 0;
-    const out: BatchPairExport[] = [];
-    for (const p of pairs) {
-      const r = results[p.id];
-      if (!p.aId || !p.bId || !r) continue;
-      idx++;
-      out.push({
-        index: idx,
-        aName: fileById('A', p.aId)?.name ?? 'A',
-        bName: fileById('B', p.bId)?.name ?? 'B',
-        summary: r.summary,
-        pageCache: r.pageCache,
-      });
-    }
-    return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pairs, results, filesA, filesB]);
 
   const openInCompare = (a: BatchFile, b: BatchFile) => {
     adoptPair({ name: a.name, doc: a.doc, pageCount: a.pageCount }, { name: b.name, doc: b.doc, pageCount: b.pageCount });
@@ -152,34 +114,6 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
         </div>
         <div className="spacer" />
         {hasFiles && <button className="btn sm" onClick={clearAll}>Clear all</button>}
-        <div className="export-menu" ref={menuRef}>
-          <button className="btn" disabled={exportPairs.length === 0 || !!exporting} onClick={() => setMenuOpen((o) => !o)}>
-            {exporting ? (
-              <><span className="spinner" style={{ width: 12, height: 12 }} />
-                {exporting === 'html' && exportProgress ? `Building ${exportProgress.done}/${exportProgress.total}…` : 'Exporting…'}</>
-            ) : (
-              '⬇ Export ▾'
-            )}
-          </button>
-          {menuOpen && exportPairs.length > 0 && !exporting && (
-            <div className="export-dropdown">
-              <button onClick={async () => {
-                setMenuOpen(false);
-                setExporting('html');
-                setExportProgress({ done: 0, total: exportPairs.length });
-                try {
-                  await exportBatchHtml(exportPairs, thresholds, (done, total) => setExportProgress({ done, total }));
-                } finally {
-                  setExporting(null);
-                  setExportProgress(null);
-                }
-              }}>HTML report<small>Overview + every pair's annotated pages</small></button>
-              <button onClick={() => { exportBatchMarkdown(exportPairs, thresholds); setMenuOpen(false); }}>Markdown fix-list<small>What to change in the templates · for an AI agent</small></button>
-        <button onClick={() => { exportBatchJson(exportPairs, thresholds); setMenuOpen(false); }}>JSON<small>All pairs &amp; pages, machine-readable</small></button>
-              <button onClick={() => { exportBatchCsv(exportPairs, thresholds); setMenuOpen(false); }}>CSV<small>One row per pair × page</small></button>
-            </div>
-          )}
-        </div>
       </div>
 
       <main className="app-body">
@@ -188,12 +122,19 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
             <div className="icon">🗂️🆚🗂️</div>
             <h2>Compare many PDFs at once</h2>
             <p>
-              Add several PDFs to <strong>Side A</strong> and <strong>Side B</strong>, choose which A file pairs with which
-              B file, then run every comparison in one go. Export a combined report of all the differences.
+              Add several <strong>golden PDFs</strong> and <strong>PDFs to test</strong> below, choose which golden file
+              pairs with which tested file, then run every comparison in one go. Export a combined report of all the
+              differences.
             </p>
-            <p style={{ marginTop: 20 }}>
-              <button className="btn primary" onClick={loadExample} disabled={loadingExample}>
-                {loadingExample ? (<><span className="spinner" style={{ borderTopColor: '#fff', borderColor: 'rgba(255,255,255,0.4)' }} /> Loading…</>) : 'Load example set'}
+
+            <div className="batch-uploads stacked">
+              <MultiUpload side="A" />
+              <MultiUpload side="B" />
+            </div>
+
+            <p className="empty-aside">
+              <button className="btn quiet" onClick={loadExample} disabled={loadingExample}>
+                {loadingExample ? (<><span className="spinner" /> Loading…</>) : 'or load example set'}
               </button>
             </p>
             {error && <p className="slot-error">⚠ {error}</p>}
@@ -231,7 +172,7 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
                 <div className="section-pad" style={{ paddingBottom: 8, fontWeight: 600 }}>Results</div>
                 <table className="report batch-overview">
                   <thead>
-                    <tr><th>#</th><th>Side A</th><th>Side B</th><th>Pages</th><th>Differing</th><th>Worst content</th><th>Worst pixels</th><th>Worst offset</th><th>Result</th><th></th></tr>
+                    <tr><th>#</th><th>Golden PDF</th><th>PDF tested</th><th>Pages</th><th>Differing</th><th>Worst content</th><th>Worst pixels</th><th>Worst offset</th><th>Result</th><th></th></tr>
                   </thead>
                   <tbody>
                     {validPairs.map((p, idx) => {

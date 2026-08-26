@@ -61,7 +61,7 @@ export default function PageNavigator() {
       {mismatch && (
         <span
           className="mismatch-badge"
-          title={`Side A has ${countA} pages, Side B has ${countB}. Extra pages exist only on one side.`}
+          title={`The golden PDF has ${countA} pages, the PDF under test has ${countB}. Extra pages exist in only one of them.`}
         >
           ⚠ {countA} vs {countB}
         </span>

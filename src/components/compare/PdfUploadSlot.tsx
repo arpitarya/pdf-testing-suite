@@ -44,7 +44,7 @@ export default function PdfUploadSlot({ side, label, hint }: Props) {
         }}
         style={{ cursor: loaded ? 'default' : 'pointer' }}
       >
-        <div className="side-tag">{side}</div>
+        <div className="side-tag">{side === 'A' ? 'GOLDEN' : 'TEST'}</div>
 
         {loading ? (
           <div className="slot-main" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

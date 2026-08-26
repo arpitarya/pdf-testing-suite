@@ -659,7 +659,7 @@ export async function comparePage(
 
   const notes: string[] = [];
 
-  // Side A defines the target box; fall back to B if A is missing.
+  // The golden page defines the target box; fall back to the tested page if it is missing.
   let box: { w: number; h: number; scale: number };
   if (hasA) {
     const pageA = await pdfA!.getPage(pageIndex + 1);
@@ -682,9 +682,9 @@ export async function comparePage(
     const r = await renderAndExtract(pageA, box.w, box.h);
     imageA = r.image;
     itemsA = r.items;
-    if (itemsA.length === 0) notes.push('No selectable text layer in A (scanned image?).');
+    if (itemsA.length === 0) notes.push('No selectable text layer in the golden PDF (scanned image?).');
   } else {
-    notes.push('This page exists only in the recreated PDF (B).');
+    notes.push('This page exists only in the PDF under test.');
   }
 
   if (hasB) {
@@ -692,12 +692,12 @@ export async function comparePage(
     const r = await renderAndExtract(pageB, box.w, box.h);
     imageB = r.image;
     itemsB = r.items;
-    if (itemsB.length === 0) notes.push('No selectable text layer in B (scanned image?).');
+    if (itemsB.length === 0) notes.push('No selectable text layer in the PDF under test (scanned image?).');
     if (r.image.letterboxed) {
-      notes.push('Page B has a different size/aspect ratio and was scaled to fit A.');
+      notes.push('The tested page has a different size/aspect ratio and was scaled to fit the golden page.');
     }
   } else {
-    notes.push('This page exists only in the original PDF (A).');
+    notes.push('This page exists only in the golden PDF.');
   }
 
   const textA = reconstructReadingText(itemsA);

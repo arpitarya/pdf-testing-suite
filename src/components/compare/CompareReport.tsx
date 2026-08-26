@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useCompareStore } from '../../store/compareStore';
 import type { PageSummary } from '../../types/compare';
-import {
-  exportCsv,
-  exportHtmlReport,
-  exportJson,
-  type ExportThresholds,
-} from '../../services/exportReport';
-import { exportMarkdownReport } from '../../services/exportMarkdown';
+
+// marked + DOMPurify are only needed once someone opens the preview.
+const ReportViewer = lazy(() => import('./ReportViewer'));
 
 export default function CompareReport() {
   const summary = useCompareStore((s) => s.summary);
@@ -16,26 +12,10 @@ export default function CompareReport() {
   const computeAll = useCompareStore((s) => s.computeAll);
   const setCurrentPage = useCompareStore((s) => s.setCurrentPage);
   const setMode = useCompareStore((s) => s.setMode);
-  const pageCache = useCompareStore((s) => s.pageCache);
-  const sideA = useCompareStore((s) => s.sideA);
-  const sideB = useCompareStore((s) => s.sideB);
+  const { contentPct, pixelPct, offsetIn } = useCompareStore((s) => s.reportThresholds);
+  const setThreshold = useCompareStore((s) => s.setReportThreshold);
 
-  const [contentPct, setContentPct] = useState(99);
-  const [pixelPct, setPixelPct] = useState(2);
-  const [offsetIn, setOffsetIn] = useState(0.03);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [exportingHtml, setExportingHtml] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const thresholds: ExportThresholds = { contentPct, pixelPct, offsetIn };
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
+  const [viewerOpen, setViewerOpen] = useState(false);
 
   const judge = (p: PageSummary) =>
     !p.missing &&
@@ -44,14 +24,6 @@ export default function CompareReport() {
     p.maxOffset / p.pxPerInch <= offsetIn;
 
   const overallPass = summary ? summary.pages.every(judge) : false;
-
-  const meta = {
-    nameA: sideA?.name ?? 'Side A',
-    nameB: sideB?.name ?? 'Side B',
-    pageCountA: sideA?.pageCount ?? 0,
-    pageCountB: sideB?.pageCount ?? 0,
-    generatedAt: new Date().toISOString(),
-  };
 
   const drillTo = (i: number) => {
     setCurrentPage(i);
@@ -80,15 +52,15 @@ export default function CompareReport() {
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>PASS if</span>
             <label className="thresh">
               content ≥
-              <input type="number" value={contentPct} onChange={(e) => setContentPct(Number(e.target.value))} />%
+              <input type="number" value={contentPct} onChange={(e) => setThreshold('contentPct', Number(e.target.value))} />%
             </label>
             <label className="thresh">
               pixels ≤
-              <input type="number" value={pixelPct} onChange={(e) => setPixelPct(Number(e.target.value))} />%
+              <input type="number" value={pixelPct} onChange={(e) => setThreshold('pixelPct', Number(e.target.value))} />%
             </label>
             <label className="thresh">
               offset ≤
-              <input type="number" step={0.01} value={offsetIn} onChange={(e) => setOffsetIn(Number(e.target.value))} />in
+              <input type="number" step={0.01} value={offsetIn} onChange={(e) => setThreshold('offsetIn', Number(e.target.value))} />in
             </label>
           </div>
 
@@ -100,62 +72,14 @@ export default function CompareReport() {
             </span>
           )}
 
-          {/* Export menu */}
-          <div className="export-menu" ref={menuRef}>
-            <button
-              className="btn"
-              disabled={!summary || exportingHtml}
-              onClick={() => setMenuOpen((o) => !o)}
-              title={summary ? 'Export results' : 'Run a comparison first'}
-            >
-              {exportingHtml ? (<><span className="spinner" style={{ width: 12, height: 12 }} /> Building…</>) : '⬇ Export ▾'}
-            </button>
-            {menuOpen && summary && (
-              <div className="export-dropdown">
-                <button
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    setExportingHtml(true);
-                    try {
-                      await exportHtmlReport(summary, meta, thresholds, pageCache);
-                    } finally {
-                      setExportingHtml(false);
-                    }
-                  }}
-                >
-                  HTML report
-                  <small>Printable, with diff images · Save as PDF</small>
-                </button>
-                <button
-                  onClick={() => {
-                    exportMarkdownReport(summary, meta, thresholds, pageCache);
-                    setMenuOpen(false);
-                  }}
-                >
-                  Markdown fix-list
-                  <small>What to change in the template · for an AI agent</small>
-                </button>
-                <button
-                  onClick={() => {
-                    exportJson(summary, meta, thresholds);
-                    setMenuOpen(false);
-                  }}
-                >
-                  JSON data
-                  <small>Full metrics + verdict, machine-readable</small>
-                </button>
-                <button
-                  onClick={() => {
-                    exportCsv(summary, thresholds);
-                    setMenuOpen(false);
-                  }}
-                >
-                  CSV spreadsheet
-                  <small>Per-page metrics table</small>
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            className="btn"
+            disabled={!summary}
+            onClick={() => setViewerOpen(true)}
+            title={summary ? 'Read the reports without downloading them' : 'Compare all pages first'}
+          >
+            👁 View reports
+          </button>
         </div>
       </div>
 
@@ -193,6 +117,20 @@ export default function CompareReport() {
           </table>
         )}
       </div>
+      {viewerOpen && (
+        <Suspense
+          fallback={
+            <div className="viewer-backdrop">
+              <div className="loading-center">
+                <span className="spinner" /> Loading viewer…
+              </div>
+            </div>
+          }
+        >
+          <ReportViewer onClose={() => setViewerOpen(false)} />
+        </Suspense>
+      )}
+
     </div>
   );
 }

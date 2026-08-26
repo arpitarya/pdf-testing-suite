@@ -54,7 +54,11 @@ export function escapeHtml(s: string): string {
 }
 
 // ── JSON export ───────────────────────────────────────────────────────
-export function exportJson(summary: CompareSummary, meta: ExportMeta, thresholds: ExportThresholds) {
+export function buildJsonReport(
+  summary: CompareSummary,
+  meta: ExportMeta,
+  thresholds: ExportThresholds,
+): string {
   const pages = summary.pages.map((p) => ({
     page: p.pageIndex + 1,
     contentMatch: p.contentMatch,
@@ -78,11 +82,15 @@ export function exportJson(summary: CompareSummary, meta: ExportMeta, thresholds
     pages,
   };
 
-  download(`pdf-comparison-${stamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  return JSON.stringify(payload, null, 2);
+}
+
+export function exportJson(summary: CompareSummary, meta: ExportMeta, thresholds: ExportThresholds) {
+  download(`pdf-comparison-${stamp()}.json`, buildJsonReport(summary, meta, thresholds), 'application/json');
 }
 
 // ── CSV export ────────────────────────────────────────────────────────
-export function exportCsv(summary: CompareSummary, thresholds: ExportThresholds) {
+export function buildCsvReport(summary: CompareSummary, thresholds: ExportThresholds): string {
   const header = ['Page', 'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Missing', 'Result'];
   const rows = summary.pages.map((p) => [
     p.pageIndex + 1,
@@ -92,8 +100,11 @@ export function exportCsv(summary: CompareSummary, thresholds: ExportThresholds)
     p.missing ? 'yes' : 'no',
     judgePage(p, thresholds) ? 'PASS' : 'FAIL',
   ]);
-  const csv = [header, ...rows].map((r) => r.join(',')).join('\r\n');
-  download(`pdf-comparison-${stamp()}.csv`, csv, 'text/csv');
+  return [header, ...rows].map((r) => r.join(',')).join('\r\n');
+}
+
+export function exportCsv(summary: CompareSummary, thresholds: ExportThresholds) {
+  download(`pdf-comparison-${stamp()}.csv`, buildCsvReport(summary, thresholds), 'text/csv');
 }
 
 // ── shared HTML report pieces (reused by the batch report) ────────────
@@ -312,7 +323,7 @@ export async function reportPageDetail(
         <span>Max shift: <b>${p.missing ? '—' : inchStr(p.maxOffset, p.pxPerInch)}</b></span>
       </div>
       ${notes}
-      <div class="rpanes">${pane(pc.imageA, 'A', 'A · Original', srcA)}${pane(pc.imageB, 'B', 'B · Recreated', srcB)}</div>
+      <div class="rpanes">${pane(pc.imageA, 'A', 'Golden PDF', srcA)}${pane(pc.imageB, 'B', 'PDF to test', srcB)}</div>
       ${diffPane}
       ${changeList}
     </section>`);
@@ -321,12 +332,12 @@ export async function reportPageDetail(
 }
 
 // ── single HTML report ────────────────────────────────────────────────
-export async function exportHtmlReport(
+export async function buildHtmlReport(
   summary: CompareSummary,
   meta: ExportMeta,
   thresholds: ExportThresholds,
   pageCache: Record<number, PageComparison>,
-) {
+): Promise<string> {
   const overall = summary.pages.every((p) => judgePage(p, thresholds));
   const passCount = summary.pages.filter((p) => judgePage(p, thresholds)).length;
   const detail = await reportPageDetail(summary, pageCache, thresholds);
@@ -343,8 +354,8 @@ export async function exportHtmlReport(
   <p class="sub">${escapeHtml(meta.nameA)} &nbsp;vs&nbsp; ${escapeHtml(meta.nameB)}</p>
   <div class="verdict ${overall ? 'pass' : 'fail'}">${overall ? '✓ OVERALL PASS' : '✗ OVERALL FAIL'}</div>
   <div class="meta-grid">
-    <div><span>Side A (original):</span> <b>${escapeHtml(meta.nameA)}</b> (${meta.pageCountA} pages)</div>
-    <div><span>Side B (recreated):</span> <b>${escapeHtml(meta.nameB)}</b> (${meta.pageCountB} pages)</div>
+    <div><span>Golden PDF:</span> <b>${escapeHtml(meta.nameA)}</b> (${meta.pageCountA} pages)</div>
+    <div><span>PDF to test:</span> <b>${escapeHtml(meta.nameB)}</b> (${meta.pageCountB} pages)</div>
     <div><span>Pages passing:</span> <b>${passCount} / ${summary.pages.length}</b></div>
     <div><span>Generated:</span> <b>${new Date(meta.generatedAt).toLocaleString()}</b></div>
     <div><span>Thresholds:</span> <b>content ≥ ${thresholds.contentPct}% · pixels ≤ ${thresholds.pixelPct}% · offset ≤ ${thresholds.offsetIn}″</b></div>
@@ -359,5 +370,15 @@ export async function exportHtmlReport(
 </body>
 </html>`;
 
+  return html;
+}
+
+export async function exportHtmlReport(
+  summary: CompareSummary,
+  meta: ExportMeta,
+  thresholds: ExportThresholds,
+  pageCache: Record<number, PageComparison>,
+) {
+  const html = await buildHtmlReport(summary, meta, thresholds, pageCache);
   download(`pdf-comparison-report-${stamp()}.html`, html, 'text/html');
 }

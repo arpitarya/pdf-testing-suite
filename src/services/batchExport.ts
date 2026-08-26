@@ -72,7 +72,7 @@ export async function exportBatchHtml(
     const detail = await reportPageDetail(p.summary, p.pageCache, thresholds);
     pairSections.push(`<div class="pair-block" id="pair-${p.index}">
       <h2>Pair ${p.index}: ${escapeHtml(p.aName)} &nbsp;vs&nbsp; ${escapeHtml(p.bName)} <span class="chip ${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</span></h2>
-      <p class="sub">A: ${p.summary.pageCountA} pages · B: ${p.summary.pageCountB} pages</p>
+      <p class="sub">Golden: ${p.summary.pageCountA} pages · Tested: ${p.summary.pageCountB} pages</p>
       <table>
         <thead><tr><th>Page</th><th>Content match</th><th>Pixels different</th><th>Max offset</th><th>Result</th></tr></thead>
         <tbody>${reportPageRows(p.summary, thresholds)}</tbody>
@@ -98,7 +98,7 @@ export async function exportBatchHtml(
   </div>
   <h2>Overview</h2>
   <table>
-    <thead><tr><th>#</th><th>Side A</th><th>Side B</th><th>Pages</th><th>Differing</th><th>Worst content</th><th>Worst pixels</th><th>Worst offset</th><th>Result</th></tr></thead>
+    <thead><tr><th>#</th><th>Golden PDF</th><th>PDF tested</th><th>Pages</th><th>Differing</th><th>Worst content</th><th>Worst pixels</th><th>Worst offset</th><th>Result</th></tr></thead>
     <tbody>${overviewRows}</tbody>
   </table>
   ${pairSections.join('\n')}
@@ -138,7 +138,7 @@ export function exportBatchJson(pairs: BatchPairExport[], thresholds: ExportThre
 
 // ── CSV ───────────────────────────────────────────────────────────────
 export function exportBatchCsv(pairs: BatchPairExport[], thresholds: ExportThresholds) {
-  const header = ['Pair', 'SideA', 'SideB', 'Page', 'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Missing', 'Result'];
+  const header = ['Pair', 'GoldenPdf', 'TestedPdf', 'Page', 'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Missing', 'Result'];
   const esc = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const rows: string[][] = [];
   for (const p of pairs) {
@@ -185,7 +185,7 @@ export function exportBatchMarkdown(pairs: BatchPairExport[], thresholds: Export
   if (failing.length === 0) {
     parts.push('None — every comparison passed.');
   } else {
-    parts.push('| # | Reference | Candidate |');
+    parts.push('| # | Golden PDF | PDF tested |');
     parts.push('|---|---|---|');
     for (const p of failing) {
       parts.push(`| ${p.index} | \`${p.aName}\` | \`${p.bName}\` |`);

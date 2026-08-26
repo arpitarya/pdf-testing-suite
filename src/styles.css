@@ -101,6 +101,10 @@ button {
   flex-shrink: 0;
 }
 
+/* Pinned to the far right of the header whether or not the upload row (which
+   is flex: 1) happens to be mounted. */
+.header-right { margin-left: auto; flex-shrink: 0; }
+
 /* ── Buttons ───────────────────────────────────────────── */
 .btn {
   display: inline-flex;
@@ -119,6 +123,15 @@ button {
 .btn.primary { background: var(--indigo); border-color: var(--indigo); color: #fff; }
 .btn.primary:hover:not(:disabled) { background: #4338ca; }
 .btn.sm { padding: 5px 9px; font-size: 13px; }
+/* Deliberately recessive: a secondary escape hatch, not a call to action. */
+.btn.quiet {
+  background: transparent; border-color: transparent;
+  color: var(--faint); font-weight: 500; font-size: 13px; padding: 4px 6px;
+}
+.btn.quiet:hover:not(:disabled) {
+  background: transparent; border-color: transparent;
+  color: var(--muted); text-decoration: underline;
+}
 
 /* ── Toolbar ───────────────────────────────────────────── */
 .subtoolbar {
@@ -192,7 +205,7 @@ button.summary-chip { cursor: pointer; }
 
 /* ── Empty state ───────────────────────────────────────── */
 .empty-state {
-  max-width: 560px;
+  max-width: 620px;
   margin: 8vh auto;
   text-align: center;
   color: var(--muted);
@@ -200,6 +213,12 @@ button.summary-chip { cursor: pointer; }
 .empty-state h2 { color: var(--text); margin-bottom: 8px; }
 .empty-state p { line-height: 1.6; }
 .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+/* The drop slots are the primary action here, so they get real estate: full
+   width of the empty state, stacked, and taller than the header variant. */
+.upload-row.stacked { flex-direction: column; gap: 10px; margin: 26px 0 10px; }
+.upload-row.stacked .slot { min-height: 66px; text-align: left; }
+.empty-aside { margin-top: 2px; }
 
 /* ── Upload slot ───────────────────────────────────────── */
 .slot {
@@ -222,10 +241,11 @@ button.summary-chip { cursor: pointer; }
 .slot.loaded.b { border-color: var(--emerald); background: var(--emerald-soft); }
 .slot .side-tag {
   font-weight: 700;
-  width: 22px; height: 22px;
+  /* Auto width: the badge carries a word (GOLD / TEST), not a single letter. */
+  padding: 0 7px; height: 22px;
   border-radius: 6px;
   display: grid; place-items: center;
-  color: #fff; font-size: 12px; flex-shrink: 0;
+  color: #fff; font-size: 10px; letter-spacing: 0.06em; flex-shrink: 0;
 }
 .slot.a .side-tag { background: var(--indigo); }
 .slot.b .side-tag { background: var(--emerald); }
@@ -284,10 +304,20 @@ button.summary-chip { cursor: pointer; }
 }
 
 /* ── Change overlay + legend + list ────────────────────── */
+/* One row, two groups: filters on the left, page actions on the right. Only the
+   chips wrap, so the annotation controls never drop to a line of their own. */
 .overlay-legend {
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 12px;
   font-size: 12px; color: var(--muted); margin-bottom: 12px;
 }
+.legend-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.legend-info {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border-strong); background: var(--panel);
+  color: var(--faint); font-size: 11px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center; cursor: help; padding: 0;
+}
+.legend-info:hover { color: var(--indigo); border-color: var(--indigo); }
 .overlay-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid; }
 .overlay-legend .dot.removed { border-color: var(--red); background: rgba(220,38,38,0.15); }
 .overlay-legend .dot.added { border-color: var(--emerald); background: rgba(5,150,105,0.15); }
@@ -533,6 +563,124 @@ table.report td.res-fail { color: var(--red); font-weight: 700; }
 .export-dropdown button small { display: block; color: var(--faint); font-weight: 400; }
 .export-dropdown button + button { border-top: 1px solid var(--border); }
 
+/* ── Annotations (feature-flagged) ─────────────────────── */
+/* The layer covers the page but ignores the pointer, so hovering a change box
+   underneath still works. It only becomes clickable while a pin is being placed. */
+.anno-layer { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+.anno-layer.placing { pointer-events: auto; cursor: crosshair; background: rgba(37,99,235,0.05); }
+
+.anno-pin-wrap { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; line-height: 0; }
+.anno-pin {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #fff; background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center; cursor: pointer; padding: 0;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+}
+.anno-pin:hover { transform: scale(1.12); }
+.anno-pin.open { outline: 2px solid var(--indigo); outline-offset: 2px; }
+.anno-pin.empty { background: var(--faint); }
+
+.anno-editor {
+  position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+  width: 260px; z-index: 30; line-height: normal;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 10px; box-shadow: var(--shadow); padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+}
+.anno-editor textarea {
+  width: 100%; min-height: 74px; resize: vertical;
+  font-family: inherit; font-size: 13px; color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: 7px; padding: 7px 9px;
+}
+.anno-editor-foot { display: flex; align-items: center; gap: 8px; }
+.anno-hint { font-size: 11px; color: var(--faint); }
+
+.anno-toolbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.anno-arm.on { background: var(--indigo-soft); border-color: var(--indigo); color: var(--indigo); }
+.anno-arm.on:hover:not(:disabled) { background: var(--indigo-soft); border-color: var(--indigo); }
+.anno-count {
+  font-weight: 600; color: var(--indigo); background: var(--indigo-soft);
+  padding: 2px 9px; border-radius: 999px; font-variant-numeric: tabular-nums;
+}
+.anno-clear { color: var(--muted); }
+
+/* ── Report viewer (in-app preview) ────────────────────── */
+.viewer-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 3vh 3vw;
+}
+.viewer {
+  display: flex; flex-direction: column;
+  width: 100%; height: 100%; max-width: 1200px;
+  background: var(--panel); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.4);
+}
+.viewer-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.viewer-sub {
+  font-size: 12px; color: var(--faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.viewer-body { flex: 1; min-height: 0; display: flex; background: #f1f5f9; }
+/* The report ships its own bare-element CSS, so it renders in a frame rather
+   than in the page where it would restyle the app. */
+.viewer-frame { flex: 1; width: 100%; height: 100%; border: 0; background: #fff; }
+.viewer-md { flex: 1; overflow: auto; padding: 28px 32px; background: #fff; }
+
+/* ── Rendered markdown ─────────────────────────────────── */
+.md-body { max-width: 860px; margin: 0 auto; color: var(--text); font-size: 14px; line-height: 1.65; }
+.md-body > *:first-child { margin-top: 0; }
+.md-body h1 { font-size: 26px; margin: 28px 0 10px; line-height: 1.2; }
+.md-body h2 {
+  font-size: 20px; margin: 30px 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.md-body h3 { font-size: 16px; margin: 22px 0 8px; }
+.md-body h4 { font-size: 14px; margin: 18px 0 6px; color: var(--muted); }
+.md-body p { margin: 0 0 12px; }
+.md-body ul, .md-body ol { margin: 0 0 12px; padding-left: 22px; }
+.md-body li { margin-bottom: 4px; }
+.md-body a { color: var(--indigo); }
+.md-body hr { border: 0; border-top: 1px solid var(--border); margin: 26px 0; }
+.md-body blockquote {
+  margin: 0 0 14px; padding: 8px 14px;
+  border-left: 3px solid var(--border-strong);
+  background: #f8fafc; color: var(--muted);
+}
+.md-body blockquote p:last-child { margin-bottom: 0; }
+.md-body code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px;
+  background: #f1f5f9; border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px;
+}
+.md-body pre {
+  background: #f8fafc; border: 1px solid var(--border); border-radius: 9px;
+  padding: 12px 14px; overflow-x: auto; margin: 0 0 14px;
+}
+.md-body pre code { background: none; border: 0; padding: 0; font-size: 12.5px; }
+/* Wide tables scroll inside their own box instead of stretching the dialog. */
+.md-body table {
+  display: block; width: max-content; max-width: 100%; overflow-x: auto;
+  border-collapse: collapse; margin: 0 0 16px; font-size: 13px;
+}
+.md-body th, .md-body td {
+  border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top;
+}
+.md-body th { background: #f8fafc; font-weight: 600; white-space: nowrap; }
+.md-body tbody tr:nth-child(even) { background: #fcfdfe; }
+
+@media (max-width: 720px) {
+  .viewer-backdrop { padding: 0; }
+  .viewer { border-radius: 0; max-width: none; }
+  .viewer-sub { display: none; }
+  .viewer-md { padding: 18px 16px; }
+}
+
 /* ── Spinner ───────────────────────────────────────────── */
 .spinner {
   width: 18px; height: 18px; border: 2px solid var(--border-strong);
@@ -640,8 +788,12 @@ table.mp-table tr.sep td { border-top: 1px solid var(--border); padding-top: 8px
 /* ── Batch compare ─────────────────────────────────────── */
 .batch-uploads { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 720px) { .batch-uploads { grid-template-columns: 1fr; } }
+/* Empty-state variant: the drop zones are the primary action, so they stack to
+   full width and opt out of the centred text of .empty-state. */
+.batch-uploads.stacked { grid-template-columns: 1fr; gap: 14px; margin: 26px 0 10px; text-align: left; }
+.batch-uploads.stacked .batch-drop { padding: 24px 18px; }
 .batch-col-head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
-.batch-col-head .stag { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700; }
+.batch-col-head .stag { padding: 0 6px; height: 20px; border-radius: 5px; display: grid; place-items: center; color: #fff; font-size: 10px; letter-spacing: 0.06em; font-weight: 700; }
 .batch-col-head .stag.a { background: var(--indigo); }
 .batch-col-head .stag.b { background: var(--emerald); }
 .batch-col-head .cnt { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); background: #f1f5f9; padding: 1px 9px; border-radius: 999px; }

@@ -8,6 +8,9 @@ import SummaryChip from './components/compare/SummaryChip';
 import ContentCompareView from './components/compare/ContentCompareView';
 import LayoutCompareView from './components/compare/LayoutCompareView';
 import CompareReport from './components/compare/CompareReport';
+import ExportMenu from './components/compare/ExportMenu';
+import BatchExportMenu from './components/batch/BatchExportMenu';
+import SpecExportMenu from './components/spec/SpecExportMenu';
 import SpecTestView from './components/spec/SpecTestView';
 import MeasureView from './components/measure/MeasureView';
 import BatchView from './components/batch/BatchView';
@@ -17,6 +20,14 @@ type Workspace = 'compare' | 'spec' | 'measure' | 'batch';
 // Auto-run a full scan on load for documents up to this many pages, so the
 // summary chip and changed-pages strip have data without an explicit click.
 const AUTO_SCAN_MAX_PAGES = 60;
+
+// Tab order and labels in one place: the header renders straight from this.
+const WORKSPACE_TABS: [Workspace, string][] = [
+  ['batch', 'Batch compare'],
+  ['compare', 'Compare 2 PDFs'],
+  ['spec', 'Spec driven comparison'],
+  ['measure', 'Utilities'],
+];
 
 const MODE_TABS: [CompareMode, string, string][] = [
   ['content', '📝', 'Content'],
@@ -67,23 +78,33 @@ export default function App() {
           🔍 PDF Compare <span className="badge">QA</span>
         </div>
         <div className="workspace-tabs">
-          <button className={`ws-tab ${workspace === 'compare' ? 'active' : ''}`} onClick={() => setWorkspace('compare')}>
-            Compare PDFs
-          </button>
-          <button className={`ws-tab ${workspace === 'spec' ? 'active' : ''}`} onClick={() => setWorkspace('spec')}>
-            Test new pages
-          </button>
-          <button className={`ws-tab ${workspace === 'measure' ? 'active' : ''}`} onClick={() => setWorkspace('measure')}>
-            Measurements
-          </button>
-          <button className={`ws-tab ${workspace === 'batch' ? 'active' : ''}`} onClick={() => setWorkspace('batch')}>
-            Batch compare
-          </button>
+          {WORKSPACE_TABS.map(([id, label]) => (
+            <button
+              key={id}
+              className={`ws-tab ${workspace === id ? 'active' : ''}`}
+              onClick={() => setWorkspace(id)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        {workspace === 'compare' && (
+        {workspace === 'compare' && bothLoaded && (
           <div className="upload-row">
-            <PdfUploadSlot side="A" label="Side A · Original" hint="Drop the reference PDF" />
-            <PdfUploadSlot side="B" label="Side B · Recreated" hint="Drop the generated PDF" />
+            <PdfUploadSlot side="A" label="Golden PDF" hint="Drop the golden PDF" />
+            <PdfUploadSlot side="B" label="PDF to test" hint="Drop the PDF to test" />
+          </div>
+        )}
+        {/* Every workspace that produces results exports from the same corner.
+            Utilities has nothing to export, so it gets no button at all. */}
+        {workspace !== 'measure' && (
+          <div className="header-right">
+            {workspace === 'compare' ? (
+              <ExportMenu />
+            ) : workspace === 'batch' ? (
+              <BatchExportMenu />
+            ) : (
+              <SpecExportMenu />
+            )}
           </div>
         )}
       </header>
@@ -124,24 +145,26 @@ export default function App() {
                 <div className="icon">📄🆚📄</div>
                 <h2>Compare two PDFs</h2>
                 <p>
-                  Upload an <strong>original</strong> (Side A) and a <strong>recreated</strong> (Side B)
-                  PDF using the slots above. The suite checks text content, pixel-level layout, and exact
-                  text-position offsets — then lets you export a pass/fail report.
+                  Drop the <strong>golden PDF</strong> and the <strong>PDF to test</strong> below.
+                  The suite checks text content, pixel-level layout, and exact text-position
+                  offsets — then lets you export a pass/fail report.
                 </p>
-                <p style={{ marginTop: 20 }}>
-                  <button className="btn primary" onClick={loadExample} disabled={loadingExample}>
+
+                <div className="upload-row stacked">
+                  <PdfUploadSlot side="A" label="Golden PDF" hint="Drop the golden PDF" />
+                  <PdfUploadSlot side="B" label="PDF to test" hint="Drop the PDF to test" />
+                </div>
+
+                <p className="empty-aside">
+                  <button className="btn quiet" onClick={loadExample} disabled={loadingExample}>
                     {loadingExample ? (
                       <>
-                        <span className="spinner" style={{ borderTopColor: '#fff', borderColor: 'rgba(255,255,255,0.4)' }} />
-                        Loading…
+                        <span className="spinner" /> Loading…
                       </>
                     ) : (
-                      'Load example invoices'
+                      'or load example invoices'
                     )}
                   </button>
-                </p>
-                <p style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>
-                  (Requires the bundled sample PDFs in <code>public/samples/</code>.)
                 </p>
               </div>
             ) : mode === 'content' ? (

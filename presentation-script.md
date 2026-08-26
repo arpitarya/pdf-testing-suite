@@ -64,10 +64,10 @@ short sentences, contractions — so read it once or twice and then say it in yo
 >
 > **Compare** is the main one — two documents, page by page.
 >
-> **Test new pages** is for when you don't have a reference. You describe what should be on
+> **Spec driven comparison** is for when you don't have a reference. You describe what should be on
 > the page and it checks against that instead.
 >
-> **Measurements** is a small thing but people use it a lot — load one PDF, hover anything,
+> **Utilities** is a small thing but people use it a lot — load one PDF, hover anything,
 > and it tells you how far it is from the edges, or what font it's in.
 >
 > **Batch** is many documents at once.

@@ -4,9 +4,9 @@
 // the template to make it pass?", and is structured so an LLM can apply the fixes
 // to an AEM Forms XDP (XFA XML) template without further interpretation:
 //
-//   * Side A is the REFERENCE (what the document should look like); side B is the
-//     CANDIDATE the template currently produces. Every fix therefore moves B
-//     toward A, and is phrased as an imperative on the template.
+//   * The GOLDEN PDF is the reference (what the document should look like); the
+//     PDF UNDER TEST is what the template currently produces. Every fix therefore
+//     moves the tested output toward the golden, phrased as an imperative on the template.
 //   * Positions and deltas are in INCHES, which is what XDP's x/y/w/h attributes
 //     accept, so a value here can be used directly.
 //   * Deltas are given as the correction to apply, not just the observed drift —
@@ -306,9 +306,9 @@ const HEADER = `# PDF Template Remediation Report
 
 1. Work through findings in the order given — they are sorted by page, then by
    severity (critical → high → medium → low).
-2. **Side A is the reference**: the document as it should look.
-   **Side B is the candidate**: what the current template produces.
-   Every fix moves B toward A. Never change the reference.
+2. **The golden PDF is the reference**: the document as it should look.
+   **The PDF under test is the candidate**: what the current template produces.
+   Every fix moves the tested output toward the golden. Never change the golden PDF.
 3. Apply each fix to the **XDP template**, not to the generated PDF.
 4. Positions and deltas are in **inches**, matching XDP's \`x\`, \`y\`, \`w\` and \`h\`
    attributes, so values can be used as written. Font sizes are in **points**,
@@ -395,8 +395,8 @@ export function buildMarkdownReport(
 
   out.push('## Run metadata');
   out.push('');
-  out.push(`- **Reference (side A, expected)**: \`${meta.nameA}\` — ${meta.pageCountA} pages`);
-  out.push(`- **Candidate (side B, generated)**: \`${meta.nameB}\` — ${meta.pageCountB} pages`);
+  out.push(`- **Golden PDF (expected)**: \`${meta.nameA}\` — ${meta.pageCountA} pages`);
+  out.push(`- **PDF under test (generated)**: \`${meta.nameB}\` — ${meta.pageCountB} pages`);
   out.push(`- **Generated**: ${new Date(meta.generatedAt).toISOString()}`);
   out.push(`- **Overall**: ${overall ? 'PASS' : 'FAIL'} — ${passCount}/${summary.pages.length} pages within tolerance`);
   out.push(

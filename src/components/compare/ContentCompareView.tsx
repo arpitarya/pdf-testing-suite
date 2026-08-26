@@ -2,8 +2,13 @@ import { useMemo, useState } from 'react';
 import { useCompareStore } from '../../store/compareStore';
 import type { CompareSide, RenderedPageImage } from '../../types/compare';
 import { buildChanges, fmtInch, isOnSide, region, TYPE_LABEL, type Change, type ChangeType } from '../../services/changes';
+import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
+import { flags } from '../../flags';
 
 const TYPE_ORDER: ChangeType[] = ['removed', 'added', 'styled', 'moved'];
+
+const LEGEND_HELP =
+  'Removed / added = the words changed. Restyled = same words, different type. Moved = same words and type, shifted.\n\nClick a type to filter it out. Hover a change to link it to the page.';
 
 function scoreClass(m: number): string {
   if (m >= 0.999) return 'good';
@@ -59,6 +64,7 @@ function PageWithBoxes({
               </div>
             );
           })}
+          {flags.annotations && <AnnotationLayer page={currentPage} side={side} />}
         </div>
       ) : (
         <div className="page-missing">No page {currentPage + 1} on this side.</div>
@@ -126,27 +132,34 @@ export default function ContentCompareView() {
       {/* Rendered pages with change highlights */}
       <div className="card section-pad">
         <div className="overlay-legend">
-          {TYPE_ORDER.map((t) => (
-            <button
-              key={t}
-              className={`legend-toggle ${enabled[t] ? 'on' : 'off'}`}
-              disabled={counts[t] === 0}
-              onClick={() => setEnabled((p) => ({ ...p, [t]: !p[t] }))}
-              title={`Show / hide ${TYPE_LABEL[t].toLowerCase()} changes`}
-            >
-              <i className={`dot ${t}`} /> {TYPE_LABEL[t]} <span className="cnt">{counts[t]}</span>
+          <div className="legend-chips">
+            {TYPE_ORDER.map((t) => (
+              <button
+                key={t}
+                className={`legend-toggle ${enabled[t] ? 'on' : 'off'}`}
+                disabled={counts[t] === 0}
+                onClick={() => setEnabled((p) => ({ ...p, [t]: !p[t] }))}
+                title={`Show / hide ${TYPE_LABEL[t].toLowerCase()} changes`}
+              >
+                <i className={`dot ${t}`} /> {TYPE_LABEL[t]} <span className="cnt">{counts[t]}</span>
+              </button>
+            ))}
+            {/* The full explanation is a tooltip rather than a paragraph: it is
+                read once, but it was crowding the bar on every page. */}
+            <button className="legend-info" title={LEGEND_HELP} aria-label="What the change types mean">
+              ?
             </button>
-          ))}
-          <span className="legend-hint">
-            Removed / added = the words changed · Restyled = same words, different type ·
-            Moved = same words and type, shifted. Click a type to filter, hover to link it to the page.
-          </span>
+          </div>
+
+          <div className="spacer" />
+
+          {flags.annotations && <AnnotationToolbar page={currentPage} />}
         </div>
         <div className="pages-row">
           <PageWithBoxes
             image={pc.imageA}
             side="A"
-            label="A · Original"
+            label="Golden PDF"
             changes={visible}
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}
@@ -155,7 +168,7 @@ export default function ContentCompareView() {
           <PageWithBoxes
             image={pc.imageB}
             side="B"
-            label="B · Recreated"
+            label="PDF to test"
             changes={visible}
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}

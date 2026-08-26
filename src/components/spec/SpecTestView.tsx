@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpecStore } from '../../store/specStore';
 import type { Box, ElementResult, SpecPageResult } from '../../types/spec';
-import { exportSpecHtml, exportSpecJson } from '../../services/specExport';
 
 const TYPE_ICON: Record<ElementResult['type'], string> = {
   text: '📝',
@@ -132,19 +131,11 @@ export default function SpecTestView() {
   const setTargetSpecPage = useSpecStore((s) => s.setTargetSpecPage);
 
   const [hovered, setHovered] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // Auto-run when both a PDF and a spec are loaded.
   useEffect(() => {
     if (pdfDoc && spec && !report && !running) run();
   }, [pdfDoc, spec, report, running, run]);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
 
   const page = report?.pages[currentPage];
   const verdictPass = report ? report.totalFail === 0 : false;
@@ -165,15 +156,6 @@ export default function SpecTestView() {
             {verdictPass ? '✓' : '✗'} {report.passElements}/{report.elementCount} elements pass
           </span>
         )}
-        <div className="export-menu" ref={menuRef}>
-          <button className="btn" disabled={!report} onClick={() => setMenuOpen((o) => !o)}>⬇ Export ▾</button>
-          {menuOpen && report && (
-            <div className="export-dropdown">
-              <button onClick={() => { exportSpecHtml(report); setMenuOpen(false); }}>HTML report<small>Annotated pages + checks · print to PDF</small></button>
-              <button onClick={() => { exportSpecJson(report); setMenuOpen(false); }}>JSON<small>Full results, machine-readable</small></button>
-            </div>
-          )}
-        </div>
       </div>
 
       {pdfDoc && spec && (

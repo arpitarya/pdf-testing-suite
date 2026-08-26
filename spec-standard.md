@@ -1,6 +1,6 @@
 # PDF Spec Standard
 
-Reference for the JSON spec format consumed by the **Test new pages** workspace and the
+Reference for the JSON spec format consumed by the **Spec driven comparison** workspace and the
 `pdfsuite` CLI.
 
 Written to be used two ways: as the authority on what each field means, and as the
@@ -45,7 +45,7 @@ statement of intent, which is what makes it usable when there is no reference do
 `pages[].page` is **1-based** and must be a number.
 
 > **You do not have to renumber a single-page spec.** A spec exported from one sheet will say
-> `"page": 1`. In the app, switch **Test new pages** to **One page** and point it at whichever
+> `"page": 1`. In the app, switch **Spec driven comparison** to **One page** and point it at whichever
 > PDF page it actually describes — the spec is left alone, and the report records the mapping.
  Pages not listed are not checked. A
 page number beyond the end of the PDF is reported as `not-found` for every element on it.
