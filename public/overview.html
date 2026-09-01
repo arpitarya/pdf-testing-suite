@@ -1,0 +1,915 @@
+<title>PDF Testing Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* Shares the visual system of the project's other docs (manual.html,
+     presentation.html, cli/docs.html) so this reads as part of the same family —
+     but unlike the older deck it is fully theme-aware, since it gets shared as a
+     link rather than only projected. Every colour comes from a token. */
+  :root {
+    --paper: #fbfaf7;
+    --panel: #ffffff;
+    --sunk: #f3f1ea;
+    --ink: #1a1c22;
+    --ink-soft: #52545e;
+    --ink-faint: #8a8c95;
+    --line: #e6e2d8;
+    --line-strong: #d5cfc1;
+    --accent: #0e7c66;
+    --accent-soft: #e6f2ee;
+
+    /* The engine's own category colours, used here as data rather than decoration. */
+    --cat-text: #c2410c;
+    --cat-style: #0e7490;
+    --cat-layout: #6d28d9;
+    --doc-gold: #b45309;
+    --doc-test: #0e7c66;
+    --red: #b91c1c;
+    --green: #15803d;
+
+    --term: #1c1f26;
+    --term-line: #2c313b;
+    --term-ink: #d5dae3;
+
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+
+  /* System-dark (no explicit choice stamped) — but never when light is chosen. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15171c;
+      --panel: #1c1f26;
+      --sunk: #23262e;
+      --ink: #eceae4;
+      --ink-soft: #adaeb6;
+      --ink-faint: #7d808a;
+      --line: #2c3038;
+      --line-strong: #3a3f49;
+      --accent: #4fc4a4;
+      --accent-soft: #16332c;
+
+      --cat-text: #f0a13c;
+      --cat-style: #46c3dc;
+      --cat-layout: #ab8cff;
+      --doc-gold: #e0a33c;
+      --doc-test: #4fc4a4;
+      --red: #f28b7d;
+      --green: #6fd08c;
+
+      --term: #0f1116;
+      --term-line: #262b34;
+    }
+  }
+
+  /* Explicit dark choice wins in the other direction. */
+  :root[data-theme="dark"] {
+    --paper: #15171c;
+    --panel: #1c1f26;
+    --sunk: #23262e;
+    --ink: #eceae4;
+    --ink-soft: #adaeb6;
+    --ink-faint: #7d808a;
+    --line: #2c3038;
+    --line-strong: #3a3f49;
+    --accent: #4fc4a4;
+    --accent-soft: #16332c;
+
+    --cat-text: #f0a13c;
+    --cat-style: #46c3dc;
+    --cat-layout: #ab8cff;
+    --doc-gold: #e0a33c;
+    --doc-test: #4fc4a4;
+    --red: #f28b7d;
+    --green: #6fd08c;
+
+    --term: #0f1116;
+    --term-line: #262b34;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── deck shell ─────────────────────────────────────────────────── */
+  .deck { height: 100%; overflow: hidden; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(12px, 1.6vw, 20px);
+    padding: clamp(26px, 4.4vw, 68px) clamp(26px, 7vw, 100px) clamp(50px, 5.6vw, 74px);
+    overflow-y: auto;
+  }
+  .slide.on { display: flex; }
+  /* Centring a flex column lets children shrink; a terminal transcript squashed to
+     one line is worse than a slide that scrolls, so nothing shrinks. */
+  .slide > * { flex-shrink: 0; }
+  /* One content-dense slide needs a slightly tighter setting to stay on one screen
+     at 1280x720 — projector resolutions are the constraint, not desktops. */
+  .slide.tight {
+    gap: clamp(9px, 1.15vw, 15px);
+    padding-top: clamp(20px, 3.4vw, 52px);
+    padding-bottom: clamp(46px, 5vw, 64px);
+  }
+  .slide.tight h2 { font-size: clamp(24px, 3.1vw, 42px); }
+  .slide.tight .term-body { font-size: clamp(10px, .93vw, 11.5px); line-height: 1.62; }
+
+  /* ── type ───────────────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: clamp(10px, 1vw, 12px);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(38px, 6.2vw, 78px);
+    line-height: 1.02;
+    letter-spacing: -.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(27px, 3.7vw, 50px);
+    line-height: 1.08;
+    letter-spacing: -.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: clamp(15px, 1.35vw, 19px);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .sub {
+    font-size: clamp(15px, 1.5vw, 20px);
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+    line-height: 1.55;
+  }
+  /* Title-slide standfirst: sits between the body scale and the display face. */
+  .sub.lead { font-size: clamp(20px, 2.2vw, 30px); color: var(--ink); max-width: 46ch; }
+  p { line-height: 1.6; max-width: 66ch; margin: 0; }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .87em;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+  }
+
+  /* ── section dividers ───────────────────────────────────────────── */
+  /* The deck really is four named parts, so the numbering carries position,
+     not decoration. */
+  .divider { background: var(--sunk); }
+  .divider .num {
+    font-family: var(--mono);
+    font-size: clamp(52px, 9vw, 120px);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--line-strong);
+    letter-spacing: -.04em;
+  }
+  .divider h2 { font-size: clamp(32px, 5.4vw, 68px); }
+  .divider .lede { max-width: 54ch; color: var(--ink-soft); font-size: clamp(19px, 2.05vw, 28px); line-height: 1.5; }
+  .steps {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: clamp(10px, 1.3vw, 18px);
+    counter-reset: step;
+  }
+  .steps li {
+    counter-increment: step;
+    display: flex; align-items: baseline; gap: 16px;
+    font-size: clamp(19px, 2.05vw, 28px);
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: .5em; font-weight: 600;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* ── pipeline build ─────────────────────────────────────────────── */
+  /* The diagram is a sequence, so it reveals as one: each stage lands, its
+     caption follows, then the arrow draws into the next stage. The order of
+     the animation is the order of the pipeline, not decoration — and it paces
+     the narration. Replays whenever the slide is shown, because a hidden slide
+     is display:none and restarts its animations on return. */
+  @keyframes pipeIn {
+    from { opacity: 0; transform: translateY(7px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes pipeDraw {
+    from { opacity: 1; stroke-dashoffset: 34; }
+    to   { opacity: 1; stroke-dashoffset: 0; }
+  }
+
+  .pipe-stage, .pipe-cap { opacity: 0; }
+  .pipe-arrow { opacity: 0; stroke-dasharray: 34; stroke-dashoffset: 34; }
+
+  .slide.on .pipe-stage {
+    animation: pipeIn .44s cubic-bezier(.2, .7, .3, 1) forwards;
+    animation-delay: calc(var(--i) * 300ms);
+  }
+  .slide.on .pipe-cap {
+    animation: pipeIn .44s ease-out forwards;
+    animation-delay: calc(var(--i) * 300ms + 150ms);
+  }
+  .slide.on .pipe-arrow {
+    animation: pipeDraw .28s ease-in-out forwards;
+    animation-delay: calc(var(--i) * 300ms + 210ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pipe-stage, .pipe-cap { opacity: 1; }
+    .pipe-arrow { opacity: 1; stroke-dashoffset: 0; }
+    .slide.on .pipe-stage,
+    .slide.on .pipe-cap,
+    .slide.on .pipe-arrow { animation: none; }
+  }
+
+  /* ── workspace vignettes ────────────────────────────────────────── */
+  /* One small labelled diagram per entry point. Deliberately narrow so it reads
+     as a caption to the card, not a picture in its own right. Golden and
+     under-test documents keep the same two colours everywhere they appear. */
+  .ws-viz {
+    display: block;
+    width: 100%;
+    max-width: 190px;
+    height: auto;
+    margin-top: clamp(9px, 1vw, 12px);
+  }
+  /* The cards carry copy of differing length, so the vignettes are pushed to the
+     bottom of the card rather than left to float below their own paragraph —
+     grid items already stretch to a common height, so this lines all four up. */
+  .ws-card { display: flex; flex-direction: column; }
+  .ws-card .ws-viz { margin-top: auto; padding-top: clamp(10px, 1.1vw, 14px); }
+  .ws-viz .v-lbl {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 6.5px;
+    font-weight: 600;
+    letter-spacing: .09em;
+  }
+  .ws-viz .v-lbl.gold { fill: var(--doc-gold); }
+  .ws-viz .v-lbl.test { fill: var(--doc-test); }
+  .ws-viz .v-lbl.spec { fill: var(--cat-style); }
+  .ws-viz .v-lbl.acc  { fill: var(--accent); }
+
+  .ws-viz .v-gold rect,
+  .ws-viz .v-gold-page { fill: var(--doc-gold); fill-opacity: .13; stroke: var(--doc-gold); stroke-width: .9; }
+  .ws-viz .v-test rect,
+  .ws-viz .v-test-page { fill: var(--doc-test); fill-opacity: .13; stroke: var(--doc-test); stroke-width: .9; }
+  .ws-viz .v-spec-row rect { fill: var(--cat-style); fill-opacity: .16; stroke: var(--cat-style); stroke-width: .9; }
+  .ws-viz .v-page { fill: var(--sunk); stroke: var(--line-strong); stroke-width: .9; }
+  .ws-viz .v-row rect { fill: var(--line-strong); opacity: .7; }
+  .ws-viz .v-el { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+  .ws-viz .v-cap line { stroke: var(--accent); stroke-width: 1; }
+  .ws-viz .v-link line { stroke: var(--accent); stroke-width: 1.1; fill: none; }
+  .ws-viz .v-tick path { stroke: var(--accent); stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  @keyframes vDraw {
+    0%, 6%    { stroke-dashoffset: var(--len); }
+    34%, 84%  { stroke-dashoffset: 0; }
+    100%      { stroke-dashoffset: var(--len); }
+  }
+  @keyframes vPulse {
+    0%, 10%   { opacity: 0; }
+    34%, 84%  { opacity: 1; }
+    100%      { opacity: 0; }
+  }
+
+  .slide.on .ws-viz .v-link line,
+  .slide.on .ws-viz .v-tick path {
+    stroke-dasharray: var(--len);
+    stroke-dashoffset: var(--len);
+    animation: vDraw 4s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 320ms);
+  }
+  .slide.on .ws-viz .v-hit rect {
+    opacity: 0;
+    animation: vPulse 4s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 320ms + 200ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.on .ws-viz .v-link line,
+    .slide.on .ws-viz .v-tick path { stroke-dashoffset: 0; animation: none; }
+    .slide.on .ws-viz .v-hit rect { opacity: 1; animation: none; }
+  }
+
+  /* ── navigation ─────────────────────────────────────────────────── */
+  .rail {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: var(--line);
+    z-index: 20;
+  }
+  .rail > i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transition: width .28s cubic-bezier(.4, 0, .2, 1);
+  }
+  .hud {
+    position: fixed;
+    right: clamp(14px, 2.4vw, 30px);
+    bottom: clamp(13px, 2.4vw, 24px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    z-index: 21;
+  }
+  .hud .where {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hud button {
+    font: inherit;
+    color: var(--ink-soft);
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .hud button:hover { background: var(--sunk); color: var(--ink); }
+  .hud button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .count { font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+
+  /* ── blocks ─────────────────────────────────────────────────────── */
+  .cols { display: grid; gap: clamp(12px, 1.7vw, 20px); }
+  .c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 900px) {
+    .c2, .c3, .c4 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: clamp(14px, 1.6vw, 21px);
+  }
+  .card p { font-size: clamp(13px, 1.13vw, 15px); color: var(--ink-soft); }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 9px;
+  }
+  .t-text   { color: var(--cat-text);   background: color-mix(in srgb, var(--cat-text) 14%, transparent); }
+  .t-style  { color: var(--cat-style);  background: color-mix(in srgb, var(--cat-style) 14%, transparent); }
+  .t-layout { color: var(--cat-layout); background: color-mix(in srgb, var(--cat-layout) 14%, transparent); }
+  .b-text   { border-color: color-mix(in srgb, var(--cat-text) 42%, var(--line)); }
+  .b-style  { border-color: color-mix(in srgb, var(--cat-style) 42%, var(--line)); }
+  .b-layout { border-color: color-mix(in srgb, var(--cat-layout) 42%, var(--line)); }
+
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 16px;
+    font-size: clamp(13px, 1.13vw, 15px);
+    line-height: 1.55;
+    max-width: 74ch;
+    color: var(--ink-soft);
+  }
+  /* Only the leading <b> is the label; inline <b> inside the body stays inline. */
+  .note > b:first-child {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: var(--accent);
+  }
+  .note b { color: var(--ink); font-weight: 600; }
+
+  /* ── terminal ───────────────────────────────────────────────────── */
+  .term {
+    background: var(--term);
+    border: 1px solid var(--term-line);
+    border-radius: 11px;
+    overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--term-line);
+  }
+  .term-bar i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .term-bar .r { background: #ec6a5e; }
+  .term-bar .y { background: #f4bf4f; }
+  .term-bar .g { background: #61c554; }
+  .term-bar span { font-family: var(--mono); font-size: 10.5px; color: #7d8595; margin-left: 6px; }
+  .term-body {
+    padding: 13px 15px;
+    font-family: var(--mono);
+    font-size: clamp(10.5px, 1vw, 12.5px);
+    line-height: 1.7;
+    color: var(--term-ink);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .term-body .p { color: #6f7889; }
+  .term-body .cmd { color: #eaeef5; font-weight: 500; }
+  .term-body .ok { color: #6fd08c; }
+  .term-body .bad { color: #ff8b7a; }
+  .term-body .dim { color: #767f90; }
+  .term-body .am { color: #f0b45e; }
+  .term-body .cy { color: #5fd0e0; }
+  .term-body .vi { color: #b79cff; }
+
+  /* ── data rows ──────────────────────────────────────────────────── */
+  .rows { border-top: 1px solid var(--line); }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(140px, 190px) minmax(0, 1fr);
+    gap: clamp(10px, 1.6vw, 24px);
+    padding: clamp(10px, 1.2vw, 14px) 0;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+  }
+  @media (max-width: 760px) { .row { grid-template-columns: 1fr; gap: 4px; } }
+  .row dt { font-family: var(--mono); font-size: clamp(12px, 1.1vw, 14.5px); font-weight: 600; margin: 0; }
+  .row dt small { display: block; font-weight: 400; color: var(--ink-faint); font-size: .8em; margin-top: 3px; }
+  .row dd { margin: 0; font-size: clamp(12.5px, 1.13vw, 15px); color: var(--ink-soft); line-height: 1.55; }
+  .row dd b { color: var(--ink); font-weight: 600; }
+  dl { margin: 0; }
+
+  .scroller { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: clamp(12px, 1.1vw, 14.5px); }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  .figs { display: flex; flex-wrap: wrap; gap: clamp(20px, 3.4vw, 56px); }
+  .fig .n {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(32px, 4.4vw, 58px);
+    line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .fig .l {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+
+  svg { max-width: 100%; height: auto; display: block; }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin-top: 9px;
+  }
+  figure { margin: 0; }
+
+  .kbd {
+    font-family: var(--mono);
+    font-size: 11px;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 7px;
+    background: var(--panel);
+  }
+
+  ul.ticks { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  ul.ticks li {
+    padding-left: 22px;
+    position: relative;
+    font-size: clamp(13px, 1.13vw, 15px);
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  ul.ticks li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail > i { transition: none; }
+  }
+</style>
+
+<div class="deck" id="deck">
+
+  <section class="slide on" data-sec="">
+    <h1>PDF Testing Suite</h1>
+    <p class="sub lead">Page-level regression testing for generated PDFs.</p>
+  </section>
+
+  <section class="slide" data-sec="Output">
+    <div class="eyebrow">Entry points</div>
+    <h2>Workspaces</h2>
+    <div class="cols c4">
+      <div class="card ws-card">
+        <h3>Batch compare</h3>
+        <p>N golden documents against N candidates.</p>
+        <svg class="ws-viz" viewBox="0 0 140 34" role="img" aria-label="Golden documents paired with candidates">
+          <text class="v-lbl gold" x="3" y="7">GOLDEN</text>
+          <text class="v-lbl test" x="137" y="7" text-anchor="end">CANDIDATE</text>
+          <g class="v-gold">
+            <rect x="3" y="12" width="34" height="8" rx="2" />
+            <rect x="3" y="23" width="34" height="8" rx="2" />
+          </g>
+          <g class="v-test">
+            <rect x="103" y="12" width="34" height="8" rx="2" />
+            <rect x="103" y="23" width="34" height="8" rx="2" />
+          </g>
+          <g class="v-link" style="--len:66">
+            <line style="--i:0" x1="37" y1="16" x2="103" y2="16" />
+            <line style="--i:1" x1="37" y1="27" x2="103" y2="27" />
+          </g>
+        </svg>
+      </div>
+      <div class="card ws-card">
+        <h3>Compare 2 PDFs</h3>
+        <p>Per-page detail: content, geometry, pixel heat map.</p>
+        <svg class="ws-viz" viewBox="0 0 140 34" role="img" aria-label="Two pages compared, differences highlighted">
+          <text class="v-lbl gold" x="16" y="6">GOLDEN</text>
+          <text class="v-lbl test" x="78" y="6">CANDIDATE</text>
+          <rect class="v-gold-page" x="16" y="9" width="46" height="23" rx="3" />
+          <rect class="v-test-page" x="78" y="9" width="46" height="23" rx="3" />
+          <g class="v-row">
+            <rect x="21" y="14" width="36" height="3" rx="1.5" />
+            <rect x="21" y="21" width="28" height="3" rx="1.5" />
+            <rect x="21" y="27" width="32" height="3" rx="1.5" />
+            <rect x="83" y="14" width="36" height="3" rx="1.5" />
+            <rect x="83" y="21" width="28" height="3" rx="1.5" />
+            <rect x="83" y="27" width="32" height="3" rx="1.5" />
+          </g>
+          <g class="v-hit">
+            <rect style="--i:0" x="83" y="21" width="28" height="3" rx="1.5" fill="var(--cat-text)" />
+            <rect style="--i:2" x="83" y="27" width="32" height="3" rx="1.5" fill="var(--cat-layout)" />
+          </g>
+        </svg>
+      </div>
+      <div class="card ws-card">
+        <h3>Spec driven comparison</h3>
+        <p>Validates a document against a CSV / Excel specification sheet with no reference PDF.</p>
+        <svg class="ws-viz" viewBox="0 0 140 34" role="img" aria-label="Specification rows checked against a page">
+          <text class="v-lbl spec" x="3" y="7">SPEC</text>
+          <text class="v-lbl test" x="88" y="7">PDF</text>
+          <g class="v-spec-row">
+            <rect x="3" y="12" width="36" height="6" rx="2" />
+            <rect x="3" y="23" width="36" height="6" rx="2" />
+          </g>
+          <rect class="v-test-page" x="88" y="10" width="49" height="21" rx="3" />
+          <g class="v-link" style="--len:52">
+            <line style="--i:0" x1="41" y1="15" x2="86" y2="16" />
+            <line style="--i:1" x1="41" y1="26" x2="86" y2="25" />
+          </g>
+          <g class="v-tick" style="--len:14">
+            <path style="--i:0" d="M95 16 l3 3 l6 -7" />
+            <path style="--i:1" d="M95 25 l3 3 l6 -7" />
+          </g>
+        </svg>
+      </div>
+      <div class="card ws-card">
+        <h3>Utilities</h3>
+        <p>Single-document inspection: element position and size in inches.</p>
+        <svg class="ws-viz" viewBox="0 0 140 34" role="img" aria-label="One element on a page measured in inches">
+          <text class="v-lbl acc" x="70" y="6" text-anchor="middle">2.15 in × 0.48 in</text>
+          <rect class="v-page" x="26" y="9" width="88" height="23" rx="3" />
+          <rect class="v-el" x="38" y="12" width="52" height="10" rx="2" />
+          <g class="v-cap">
+            <line x1="38" y1="24" x2="38" y2="30" />
+            <line x1="90" y1="24" x2="90" y2="30" />
+          </g>
+          <g class="v-link" style="--len:52">
+            <line style="--i:1" x1="38" y1="27" x2="90" y2="27" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="Output">
+    <div class="eyebrow">Reports</div>
+    <h2>Formats</h2>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Format</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">HTML</td><td>Annotated pages, metrics table, verdict</td></tr>
+          <tr><td class="mono">Markdown</td><td>Remediation list keyed to template attributes</td></tr>
+          <tr><td class="mono">JSON</td><td>Full metrics, thresholds, per-page result</td></tr>
+          <tr><td class="mono">CSV</td><td>Per-page metrics</td></tr>
+          <tr><td class="mono">ZIP</td><td>All of the above plus annotated PDFs and a manifest</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide divider" data-sec="Comparison engine">
+    <h2>Comparison engine</h2>
+    <p class="lede">Uses pdf.js.</p>
+  </section>
+
+  <section class="slide" data-sec="Comparison engine">
+    <div class="eyebrow">Pipeline</div>
+    <h2>Five stages</h2>
+    <figure>
+      <svg viewBox="0 0 980 190" role="img" aria-label="Pipeline: render, extract, match, classify, report">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0 0 L10 5 L0 10 z" fill="currentColor" />
+          </marker>
+        </defs>
+        <g style="color:var(--line-strong)" stroke="currentColor" stroke-width="1.5" marker-end="url(#ar)">
+          <line class="pipe-arrow" style="--i:0" x1="176" y1="70" x2="204" y2="70" />
+          <line class="pipe-arrow" style="--i:1" x1="356" y1="70" x2="384" y2="70" />
+          <line class="pipe-arrow" style="--i:2" x1="536" y1="70" x2="564" y2="70" />
+          <line class="pipe-arrow" style="--i:3" x1="716" y1="70" x2="744" y2="70" />
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif">
+          <g class="pipe-stage" style="--i:0">
+            <rect x="6" y="34" width="170" height="72" rx="11" fill="var(--panel)" stroke="var(--line-strong)" />
+            <text x="91" y="64" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Render</text>
+            <text x="91" y="86" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">pdf.js → canvas</text>
+          </g>
+          <g class="pipe-stage" style="--i:1">
+            <rect x="206" y="34" width="150" height="72" rx="11" fill="var(--panel)" stroke="var(--line-strong)" />
+            <text x="281" y="64" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Extract</text>
+            <text x="281" y="86" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">runs + fonts</text>
+          </g>
+          <g class="pipe-stage" style="--i:2">
+            <rect x="386" y="34" width="150" height="72" rx="11" fill="var(--panel)" stroke="var(--line-strong)" />
+            <text x="461" y="64" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Match</text>
+            <text x="461" y="86" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">word level</text>
+          </g>
+          <g class="pipe-stage" style="--i:3">
+            <rect x="566" y="34" width="150" height="72" rx="11" fill="var(--accent-soft)" stroke="var(--accent)" />
+            <text x="641" y="64" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Classify</text>
+            <text x="641" y="86" text-anchor="middle" font-size="11.5" fill="var(--accent)" font-family="IBM Plex Mono, monospace">single class</text>
+          </g>
+          <g class="pipe-stage" style="--i:4">
+            <rect x="746" y="34" width="170" height="72" rx="11" fill="var(--panel)" stroke="var(--line-strong)" />
+            <text x="831" y="64" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Report</text>
+            <text x="831" y="86" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)" font-family="IBM Plex Mono, monospace">verdict + deltas</text>
+          </g>
+          <text class="pipe-cap" style="--i:0" x="91" y="140" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)">both documents, common scale</text>
+          <text class="pipe-cap" style="--i:1" x="281" y="140" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)">text, box, font, size</text>
+          <text class="pipe-cap" style="--i:2" x="461" y="140" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)">segmentation-independent</text>
+          <g class="pipe-cap" style="--i:3">
+            <rect x="569" y="127" width="50" height="17" rx="8.5" fill="var(--cat-text)" fill-opacity="0.15" stroke="var(--cat-text)" stroke-opacity="0.5" stroke-width="1" />
+            <text x="594" y="139" text-anchor="middle" font-size="9.5" font-family="IBM Plex Mono, monospace" font-weight="600" letter-spacing="0.02em" fill="var(--cat-text)">Content</text>
+            <rect x="624" y="127" width="38" height="17" rx="8.5" fill="var(--cat-style)" fill-opacity="0.15" stroke="var(--cat-style)" stroke-opacity="0.5" stroke-width="1" />
+            <text x="643" y="139" text-anchor="middle" font-size="9.5" font-family="IBM Plex Mono, monospace" font-weight="600" letter-spacing="0.02em" fill="var(--cat-style)">Style</text>
+            <rect x="667" y="127" width="46" height="17" rx="8.5" fill="var(--cat-layout)" fill-opacity="0.15" stroke="var(--cat-layout)" stroke-opacity="0.5" stroke-width="1" />
+            <text x="690" y="139" text-anchor="middle" font-size="9.5" font-family="IBM Plex Mono, monospace" font-weight="600" letter-spacing="0.02em" fill="var(--cat-layout)">Layout</text>
+          </g>
+          <text class="pipe-cap" style="--i:4" x="831" y="140" text-anchor="middle" font-size="11.5" fill="var(--ink-faint)">HTML · MD · JSON · CSV · ZIP</text>
+        </g>
+      </svg>
+    </figure>
+    <div class="note">
+      <b>Deployment</b>
+      Executes entirely in the browser tab. Pixel comparison and text comparison are
+      complementary: pixels detect what the text layer omits, text explains what the pixels
+      show.
+    </div>
+  </section>
+
+  <section class="slide tight" data-sec="Comparison engine">
+    <div class="eyebrow">Dependencies</div>
+    <h2>Stack</h2>
+    <dl class="rows">
+      <div class="row">
+        <dt>pdfjs-dist <small>4.7</small></dt>
+        <dd>Rasterises each page to canvas and returns every text run with box, font name and size. Both outputs feed the comparison.</dd>
+      </div>
+      <div class="row">
+        <dt>pixelmatch <small>5.3</small></dt>
+        <dd>Per-pixel comparison with anti-aliasing suppression. Produces the heat map and the differing-area ratio.</dd>
+      </div>
+      <div class="row">
+        <dt>diff <small>5.2</small></dt>
+        <dd>Word- and array-level differencing for intra-line highlighting and table-cell alignment.</dd>
+      </div>
+      <div class="row">
+        <dt>React 18 · Zustand 4.5 <small>Vite 5.4 · TypeScript 5.6</small></dt>
+        <dd>UI and state. A single store holds the comparison cache, thresholds and annotations.</dd>
+      </div>
+      <div class="row">
+        <dt>pdf-lib · JSZip <small>1.17 · 3.10</small></dt>
+        <dd>Stamps review comments onto the source PDF as real annotations; bundles reports and marked-up documents.</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="slide divider" data-sec="In progress">
+    <h2>In progress</h2>
+    <ol class="steps">
+      <li>Spec driven comparison</li>
+      <li>AI agent led fixes</li>
+      <li>CLI driven comparison</li>
+    </ol>
+  </section>
+
+  <section class="slide" data-sec="In progress">
+    <h2>Specification checks</h2>
+    <p class="sub">
+      Where no reference document exists, the page is validated against its written
+      specification instead.
+    </p>
+    <div class="cols">
+      <div class="card">
+        <h3>Workbook conversion</h3>
+        <p style="margin-bottom:10px">
+          Existing specification workbooks carry one tab per page. A converter emits the JSON
+          the checker consumes.
+        </p>
+        <div class="term">
+          <div class="term-body"><span class="dim">workbook tab  </span><span class="cy">"PR page – value prop"</span>
+<span class="dim">              </span><span class="p">↓ tools/spec-from-excel.py</span>
+<span class="dim">spec json     </span><span class="am">20 elements</span> <span class="dim">· 18 text · 2 image</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-sec="In progress">
+    <div class="eyebrow">In progress · agent led fixes</div>
+    <h2>Markdown fix-list</h2>
+    <p class="sub">
+      A report addressed to a model rather than a person: every finding states what the
+      template currently produces, what it should produce, and the change that closes the gap.
+    </p>
+    <div class="cols">
+      <div class="card">
+        <h3>One finding</h3>
+        <div class="term">
+          <div class="term-body"><span class="am">### P2-LAYOUT-01</span> <span class="dim">Total due block shifted</span>
+
+<span class="cy">Severity</span>  high
+<span class="cy">Element</span>   draw name=<span class="vi">"totalDue"</span>
+<span class="cy">Expected</span>  y = <span class="ok">6.20in</span>
+<span class="cy">Actual</span>    y = <span class="bad">6.28in</span>
+<span class="cy">Fix</span>       decrease <span class="vi">y</span> by <span class="ok">0.08in</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide tight" data-sec="In progress">
+    <div class="eyebrow">In progress · automation</div>
+    <h2>CLI execution</h2>
+    <p class="sub">
+      The CLI imports the same engine modules as the app. One implementation, two
+      entry points.
+    </p>
+    <div class="term">
+      <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span>jenkins · stage: pdf-regression</span></div>
+      <div class="term-body"><span class="p">$</span> <span class="cmd">pdfsuite generate --payloads ./payloads --out ./candidates</span>
+<span class="dim">  12 payloads · avg 28.4s · ETA 3m 12s</span>
+<span class="ok">  ✓ 12 PDFs written to ./candidates</span>
+<span class="p">$</span> <span class="cmd">pdfsuite compare --pairs pairs.json --goldens ./goldens</span>
+<span class="ok">  ✓ 11 of 12 passed · 74 pages</span>
+<span class="bad">  ✗ statement-q3.pdf  page 4  layout  0.08in shift  (14 runs)</span>
+<span class="dim">  exit 1</span></div>
+    </div>
+    <div class="cols c2">
+      <div class="card">
+        <h3>Commands</h3>
+        <p><code>generate</code> posts payloads to the render API and stores responses. <code>compare</code> evaluates them against goldens.</p>
+      </div>
+      <div class="card">
+        <h3>Exit codes</h3>
+        <p><code>0</code> pass · <code>1</code> comparison failed · <code>2</code> tool error. Separated so a pipeline can distinguish document regressions from job failures.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Held back from the current deck; kept intact so it can be restored by
+       deleting this comment wrapper.
+
+  <section class="slide tight" data-sec="Comparison engine">
+    <div class="eyebrow">Matching</div>
+    <h2>Segmentation independence</h2>
+    <div class="cols c2">
+      <div class="card">
+        <h3>Input</h3>
+        <p style="margin-bottom:8px">
+          pdf.js emits text runs bounded by font changes, so the same line arrives with
+          different run boundaries on each side.
+        </p>
+        <div class="term">
+          <div class="term-body"><span class="dim">golden </span>[<span class="cy">"our approach to risk"</span>]
+<span class="dim">test   </span>[<span class="cy">"our "</span>, <span class="am">"approach"</span>, <span class="cy">" to risk"</span>]</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Resolution</h3>
+        <p>
+          Lines are reconciled to word tokens before matching, with a similarity floor of
+          <b>0.34</b> for line pairing and array-level diffing across table cells. A weight
+          change on one word resolves to a single style finding rather than a whole-line
+          content edit.
+        </p>
+      </div>
+    </div>
+  </section>
+  -->
+
+</div>
+
+<div class="rail" aria-hidden="true"><i id="bar"></i></div>
+<div class="hud">
+  <span class="where" id="where"></span>
+  <button id="prev" aria-label="Previous slide">‹</button>
+  <button id="next" aria-label="Next slide">›</button>
+  <span class="count" id="count"></span>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var bar = document.getElementById('bar');
+    var count = document.getElementById('count');
+    var where = document.getElementById('where');
+    var i = 0;
+
+    function show(n) {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+      bar.style.width = ((i + 1) / slides.length * 100) + '%';
+      count.textContent = (i + 1) + ' / ' + slides.length;
+      where.textContent = slides[i].getAttribute('data-sec') || '';
+      slides[i].scrollTop = 0;
+    }
+
+    document.getElementById('prev').addEventListener('click', function () { show(i - 1); });
+    document.getElementById('next').addEventListener('click', function () { show(i + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { show(i + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { show(i - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { show(0); e.preventDefault(); }
+      else if (e.key === 'End') { show(slides.length - 1); e.preventDefault(); }
+      else if (e.key === 'f' || e.key === 'F') {
+        if (document.fullscreenElement) { document.exitFullscreen(); }
+        else if (document.documentElement.requestFullscreen) { document.documentElement.requestFullscreen(); }
+      }
+    });
+
+    show(0);
+  })();
+</script>
