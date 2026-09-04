@@ -11,7 +11,7 @@ import type {
 } from '../types/compare';
 import { comparePage, loadPdf } from '../services/pdfCompare';
 import { pageHasChange } from '../services/changes';
-import type { ExportThresholds } from '../services/exportReport';
+import { flags } from '../flags';
 
 export interface LoadedSide {
   name: string;
@@ -35,6 +35,14 @@ interface CompareState {
   // Adopt already-parsed docs for both sides (used by the batch "Open in Compare" drill-in).
   adoptPair: (a: LoadedSide, b: LoadedSide) => void;
 
+  /**
+   * The HTML report that came out of an imported bundle. When set, the Report
+   * tab shows it verbatim rather than re-rendering — it is the run as it was
+   * written. Any recomputation clears it.
+   */
+  importedReportHtml: string | null;
+  adoptImported: (a: LoadedSide, b: LoadedSide, html: string | null) => void;
+
   // Built-in example
   loadingExample: boolean;
   loadExample: () => Promise<void>;
@@ -52,12 +60,14 @@ interface CompareState {
   pixelThreshold: number;
   includeAA: boolean;
   offsetThresholdIn: number; // "moved" flag threshold, in inches
-  layoutZoom: number; // display zoom multiplier for the Layout stage (1 = fit)
+  layoutZoom: number; // display zoom multiplier for the Overlapping stage (1 = fit)
+  contentZoom: number; // ditto for Side by side; kept apart so each view holds its own
   setViewMode: (v: LayoutViewMode) => void;
   setPixelThreshold: (n: number) => void;
   setIncludeAA: (b: boolean) => void;
   setOffsetThreshold: (n: number) => void;
   setLayoutZoom: (n: number) => void;
+  setContentZoom: (n: number) => void;
 
   // Per-page cache
   pageCache: Record<number, PageComparison>;
@@ -69,12 +79,6 @@ interface CompareState {
   computingSummary: boolean;
   summaryProgress: { current: number; total: number } | null;
   computeAll: () => Promise<void>;
-
-  // Pass/fail thresholds for the report and every export. Held in the store
-  // rather than in CompareReport because the export menu now lives in the app
-  // header, outside that component's tree, and must agree with what the table shows.
-  reportThresholds: ExportThresholds;
-  setReportThreshold: <K extends keyof ExportThresholds>(key: K, value: ExportThresholds[K]) => void;
 }
 
 export const useCompareStore = create<CompareState>((set, get) => ({
@@ -100,6 +104,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
         pageCache: {},
         summary: null,
         currentPage: 0,
+        importedReportHtml: null,
       } as Partial<CompareState>);
     } catch (err) {
       set({
@@ -118,6 +123,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       pageCache: {},
       summary: null,
       currentPage: 0,
+      importedReportHtml: null,
     } as Partial<CompareState>);
   },
 
@@ -131,6 +137,22 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       summary: null,
       currentPage: 0,
       mode: 'content',
+      importedReportHtml: null,
+    });
+  },
+
+  importedReportHtml: null,
+  adoptImported(a, b, html) {
+    set({
+      sideA: a,
+      sideB: b,
+      errorA: null,
+      errorB: null,
+      pageCache: {},
+      summary: null,
+      currentPage: 0,
+      mode: 'content',
+      importedReportHtml: html,
     });
   },
 
@@ -201,12 +223,15 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     }
   },
 
-  viewMode: 'side-by-side',
+  // Without the side-by-side view there is only one Layout view to open on.
+  viewMode: flags.layoutSideBySide ? 'side-by-side' : 'diff',
   pixelThreshold: 0.1,
   includeAA: false,
   offsetThresholdIn: 0.02,
   layoutZoom: 1,
+  contentZoom: 1,
   setViewMode(v) {
+    if (v === 'side-by-side' && !flags.layoutSideBySide) return;
     set({ viewMode: v });
   },
   setPixelThreshold(n) {
@@ -220,6 +245,9 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   },
   setLayoutZoom(n) {
     set({ layoutZoom: Math.max(0.25, Math.min(6, n)) });
+  },
+  setContentZoom(n) {
+    set({ contentZoom: Math.max(0.25, Math.min(6, n)) });
   },
 
   pageCache: {},
@@ -296,11 +324,6 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       computingSummary: false,
       summaryProgress: null,
     });
-  },
-
-  reportThresholds: { contentPct: 99, pixelPct: 2, offsetIn: 0.03 },
-  setReportThreshold(key, value) {
-    set({ reportThresholds: { ...get().reportThresholds, [key]: value } });
   },
 }));
 

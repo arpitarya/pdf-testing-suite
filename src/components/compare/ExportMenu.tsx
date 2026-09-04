@@ -14,7 +14,6 @@ export default function ExportMenu() {
   const pageCache = useCompareStore((s) => s.pageCache);
   const sideA = useCompareStore((s) => s.sideA);
   const sideB = useCompareStore((s) => s.sideB);
-  const thresholds = useCompareStore((s) => s.reportThresholds);
   const annotations = useAnnotationStore((s) => s.annotations);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -70,7 +69,7 @@ export default function ExportMenu() {
               setMenuOpen(false);
               setExportingHtml(true);
               try {
-                await exportHtmlReport(summary, meta, thresholds, pageCache);
+                await exportHtmlReport(summary, meta, pageCache);
               } finally {
                 setExportingHtml(false);
               }
@@ -79,33 +78,39 @@ export default function ExportMenu() {
             HTML report
             <small>Printable, with diff images · Save as PDF</small>
           </button>
-          <button
-            onClick={() => {
-              exportMarkdownReport(summary, meta, thresholds, pageCache);
-              setMenuOpen(false);
-            }}
-          >
-            Markdown fix-list
-            <small>What to change in the template · for an AI agent</small>
-          </button>
-          <button
-            onClick={() => {
-              exportJson(summary, meta, thresholds);
-              setMenuOpen(false);
-            }}
-          >
-            JSON data
-            <small>Full metrics + verdict, machine-readable</small>
-          </button>
-          <button
-            onClick={() => {
-              exportCsv(summary, thresholds);
-              setMenuOpen(false);
-            }}
-          >
-            CSV spreadsheet
-            <small>Per-page metrics table</small>
-          </button>
+          {flags.exportMarkdown && (
+            <button
+              onClick={() => {
+                exportMarkdownReport(summary, meta, pageCache);
+                setMenuOpen(false);
+              }}
+            >
+              Markdown fix-list
+              <small>What to change in the template · for an AI agent</small>
+            </button>
+          )}
+          {flags.exportJsonCsv && (
+            <>
+              <button
+                onClick={() => {
+                  exportJson(summary, meta);
+                  setMenuOpen(false);
+                }}
+              >
+                JSON data
+                <small>Full metrics + verdict, machine-readable</small>
+              </button>
+              <button
+                onClick={() => {
+                  exportCsv(summary);
+                  setMenuOpen(false);
+                }}
+              >
+                CSV spreadsheet
+                <small>Per-page metrics table</small>
+              </button>
+            </>
+          )}
           {flags.exportZip && (
             <button
               onClick={async () => {
@@ -119,7 +124,6 @@ export default function ExportMenu() {
                     {
                       summary,
                       meta,
-                      thresholds,
                       pageCache,
                       annotations,
                       docA: sideA?.doc ?? null,

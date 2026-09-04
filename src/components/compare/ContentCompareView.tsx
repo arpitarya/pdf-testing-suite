@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompareStore } from '../../store/compareStore';
 import type { CompareSide, RenderedPageImage } from '../../types/compare';
-import { buildChanges, fmtInch, isOnSide, region, TYPE_LABEL, type Change, type ChangeType } from '../../services/changes';
+import { buildChanges, fmtInch, isOnSide, TYPE_LABEL, type Change, type ChangeType } from '../../services/changes';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
 
@@ -10,13 +10,15 @@ const TYPE_ORDER: ChangeType[] = ['removed', 'added', 'styled', 'moved'];
 const LEGEND_HELP =
   'Removed / added = the words changed. Restyled = same words, different type. Moved = same words and type, shifted.\n\nClick a type to filter it out. Hover a change to link it to the page.';
 
-function scoreClass(m: number): string {
-  if (m >= 0.999) return 'good';
-  if (m >= 0.9) return 'warn';
-  return 'bad';
-}
-
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+
+type DrawerTab = 'changes' | 'diff';
+
+// Fit height for a page in this view. Two pages sit side by side, so this is
+// shorter than the single-stage Overlapping view uses.
+const MAX_DISPLAY_H = 520;
+/** Gap between the two page frames, matching .pages-row in the stylesheet. */
+const PAGE_GAP = 16;
 
 // ── Rendered page with change boxes overlaid ──────────────────────────
 function PageWithBoxes({
@@ -27,6 +29,8 @@ function PageWithBoxes({
   hlGroup,
   setHighlighted,
   currentPage,
+  dispW,
+  dispH,
 }: {
   image: RenderedPageImage | null;
   side: CompareSide;
@@ -35,6 +39,8 @@ function PageWithBoxes({
   hlGroup: number | null;
   setHighlighted: (id: number | null) => void;
   currentPage: number;
+  dispW: number;
+  dispH: number;
 }) {
   const boxes = changes.filter((c) => isOnSide(c, side));
 
@@ -42,8 +48,8 @@ function PageWithBoxes({
     <div className="page-frame">
       <div className="plabel">{label}</div>
       {image ? (
-        <div className="page-overlay-wrap">
-          <img src={image.dataUrl} alt={`Page ${side}`} />
+        <div className="page-overlay-wrap" style={{ width: dispW, height: dispH }}>
+          <img src={image.dataUrl} alt={`Page ${side}`} style={{ width: dispW, height: dispH }} />
           {boxes.map((c) => {
             const box = (side === 'A' ? c.a : c.b)!;
             return (
@@ -60,14 +66,16 @@ function PageWithBoxes({
                 onMouseLeave={() => setHighlighted(null)}
                 title={`${TYPE_LABEL[c.type]}: ${c.text}`}
               >
-                <span className="chg-num-badge">{c.id}</span>
+                <span className="chg-num-badge">{c.label}</span>
               </div>
             );
           })}
           {flags.annotations && <AnnotationLayer page={currentPage} side={side} />}
         </div>
       ) : (
-        <div className="page-missing">No page {currentPage + 1} on this side.</div>
+        <div className="page-missing" style={{ width: dispW, height: dispH }}>
+          No page {currentPage + 1} on this side.
+        </div>
       )}
     </div>
   );
@@ -78,8 +86,13 @@ export default function ContentCompareView() {
   const pc = useCompareStore((s) => s.pageCache[s.currentPage]);
   const computing = useCompareStore((s) => s.computing);
   const movedThreshold = useCompareStore((s) => s.offsetThresholdIn);
+  const contentZoom = useCompareStore((s) => s.contentZoom);
+  const setContentZoom = useCompareStore((s) => s.setContentZoom);
 
   const [highlighted, setHighlighted] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [stageW, setStageW] = useState(0);
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>('changes');
   const [enabled, setEnabled] = useState<Record<ChangeType, boolean>>({
     removed: true,
     added: true,
@@ -103,7 +116,33 @@ export default function ContentCompareView() {
   // The highlight group of the hovered change — paired removed/added share a group,
   // so hovering either half lights up both.
   const groupById = useMemo(() => new Map(changes.map((c) => [c.id, c.group])), [changes]);
+  const labelById = useMemo(() => new Map(changes.map((c) => [c.id, c.label])), [changes]);
   const hlGroup = highlighted != null ? groupById.get(highlighted) ?? null : null;
+
+  // Fit has to mean "fits", so it answers to the width actually on offer as
+   // well as a height cap — the column narrows when the drawer opens, and laptop
+   // viewports vary. Measured on the card rather than the page row, since the
+   // row's own width follows the pages and would feed back into itself.
+  const roRef = useRef<ResizeObserver | null>(null);
+  const measureStage = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    roRef.current = null;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setStageW(entry.contentRect.width));
+    ro.observe(el);
+    roRef.current = ro;
+    setStageW(el.clientWidth);
+  }, []);
+  useEffect(() => () => roRef.current?.disconnect(), []);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
 
   // Map normalized change text → change id, so word-diff spans can link to a box.
   const textToChange = useMemo(() => {
@@ -124,13 +163,20 @@ export default function ContentCompareView() {
   }
   if (!pc) return <div className="loading-center">Preparing…</div>;
 
+  const refImg = pc.imageA ?? pc.imageB;
+  const widthFit = refImg && stageW ? (stageW - PAGE_GAP) / (refImg.width * 2) : 1;
+  const fitScale = refImg ? Math.min(1, MAX_DISPLAY_H / refImg.height, widthFit) : 1;
+  const dispScale = fitScale * contentZoom;
+  const dispW = refImg ? refImg.width * dispScale : 0;
+  const dispH = refImg ? refImg.height * dispScale : 0;
+  const zoomPct = Math.round(dispScale * 100);
+
   const bothEmpty = !pc.textA && !pc.textB;
-  const dims = pc.imageA ?? pc.imageB;
 
   return (
-    <div className="stack-col">
+    <div className={`stack-col content-view ${drawerOpen ? 'drawer-open' : ''}`}>
       {/* Rendered pages with change highlights */}
-      <div className="card section-pad">
+      <div className="card section-pad" ref={measureStage}>
         <div className="overlay-legend">
           <div className="legend-chips">
             {TYPE_ORDER.map((t) => (
@@ -154,6 +200,36 @@ export default function ContentCompareView() {
           <div className="spacer" />
 
           {flags.annotations && <AnnotationToolbar page={currentPage} />}
+
+          <div className="zoom-group" title="Zoom the page view">
+            <button className="zoombtn" onClick={() => setContentZoom(contentZoom / 1.25)} title="Zoom out">
+              −
+            </button>
+            <span className="zoom-label">{zoomPct}%</span>
+            <button className="zoombtn" onClick={() => setContentZoom(contentZoom * 1.25)} title="Zoom in">
+              +
+            </button>
+            <button className="btn sm" onClick={() => setContentZoom(1)} title="Fit to view">
+              Fit
+            </button>
+            {fitScale > 0 && (
+              <button className="btn sm" onClick={() => setContentZoom(1 / fitScale)} title="Actual pixel size">
+                1:1
+              </button>
+            )}
+          </div>
+
+          <button
+            className={`btn sm view-changes ${drawerOpen ? 'on' : ''}`}
+            onClick={() => setDrawerOpen((o) => !o)}
+            aria-expanded={drawerOpen}
+            title="Open the change list and the verbiage differences"
+          >
+            <i className="drawer-ico" aria-hidden="true">
+              <span />
+            </i>
+            View changes{changes.length > 0 ? ` · ${changes.length}` : ''}
+          </button>
         </div>
         <div className="pages-row">
           <PageWithBoxes
@@ -164,6 +240,8 @@ export default function ContentCompareView() {
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}
             currentPage={currentPage}
+            dispW={dispW}
+            dispH={dispH}
           />
           <PageWithBoxes
             image={pc.imageB}
@@ -173,6 +251,8 @@ export default function ContentCompareView() {
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}
             currentPage={currentPage}
+            dispW={dispW}
+            dispH={dispH}
           />
         </div>
       </div>
@@ -189,89 +269,94 @@ export default function ContentCompareView() {
         </div>
       )}
 
-      {/* Content match score */}
-      <div className="card section-pad">
-        <div className="score-line">
-          <span>Content match</span>
-          <span className={`score-pct ${scoreClass(pc.contentMatch)}`}>
-            {(pc.contentMatch * 100).toFixed(1)}%
-          </span>
-          {pc.match.onlyA.length > 0 && (
-            <span className="chip removed">− {pc.match.onlyA.length} removed</span>
-          )}
-          {pc.match.onlyB.length > 0 && (
-            <span className="chip added">+ {pc.match.onlyB.length} added</span>
-          )}
-        </div>
-      </div>
+      {/* The change list and the word diff are reference material read against
+          the pages, not something to scroll past to reach them — so they live in
+          a drawer. Deliberately non-modal: hovering an entry highlights its box
+          on the pages, which have to stay visible. */}
+      {drawerOpen && (
+        <aside className="chg-drawer" role="dialog" aria-label="Changes on this page">
+          <div className="chg-drawer-head">
+            <div className="tabs">
+              <button
+                className={`tab ${drawerTab === 'changes' ? 'active' : ''}`}
+                onClick={() => setDrawerTab('changes')}
+              >
+                Changes{changes.length > 0 ? ` · ${visible.length}` : ''}
+              </button>
+              <button
+                className={`tab ${drawerTab === 'diff' ? 'active' : ''}`}
+                onClick={() => setDrawerTab('diff')}
+              >
+                Verbiage differences
+              </button>
+            </div>
+            <span className="spacer" />
+            <button className="btn sm" onClick={() => setDrawerOpen(false)} title="Close (Esc)">
+              ✕
+            </button>
+          </div>
 
-      {/* Changes on this page — the "where" */}
-      <div className="card section-pad">
-        <div className="plabel" style={{ marginBottom: 10 }}>
-          Changes on this page
-          {changes.length > 0 && ` · ${visible.length}${visible.length !== changes.length ? ` of ${changes.length}` : ''}`}
-        </div>
-        {changes.length === 0 ? (
-          <div className="chg-empty">✓ No positional text changes detected on page {currentPage + 1}.</div>
-        ) : visible.length === 0 ? (
-          <div className="chg-empty muted-empty">All change types are hidden — enable a filter above.</div>
-        ) : (
-          <div className="chg-list">
-            {visible.map((c) => {
-              const box = (c.a ?? c.b)!;
-              return (
-                <div
-                  key={c.id}
-                  className={`chg-item ${c.group === hlGroup ? 'hl' : ''}`}
-                  onMouseEnter={() => setHighlighted(c.id)}
-                  onMouseLeave={() => setHighlighted(null)}
-                >
-                  <span className={`chg-num chg-${c.type}`}>{c.id}</span>
-                  <span className={`chg-chip chg-${c.type}`}>{TYPE_LABEL[c.type]}</span>
-                  <span className="chg-text" title={c.text}>{c.text}</span>
-                  <span className="chg-pos">
-                    {dims ? region(box, dims.width, dims.height) : ''}
-                    {c.type === 'styled' && c.style
-                      ? ` · ${c.style.summary}`
-                      : c.type === 'moved' && c.offset != null
-                        ? ` · moved ${fmtInch(c.offset, pc.pxPerInch)}`
-                        : ` · ${fmtInch(box.x, pc.pxPerInch)}, ${fmtInch(box.y, pc.pxPerInch)}`}
-                  </span>
+          <div className="chg-drawer-body">
+            {drawerTab === 'changes' ? (
+              changes.length === 0 ? (
+                <div className="chg-empty">
+                  ✓ No positional text changes detected on page {currentPage + 1}.
                 </div>
-              );
-            })}
+              ) : visible.length === 0 ? (
+                <div className="chg-empty muted-empty">
+                  All change types are hidden — enable a filter in the toolbar.
+                </div>
+              ) : (
+                <div className="chg-list">
+                  {visible.map((c) => (
+                      <div
+                        key={c.id}
+                        className={`chg-item ${c.group === hlGroup ? 'hl' : ''}`}
+                        onMouseEnter={() => setHighlighted(c.id)}
+                        onMouseLeave={() => setHighlighted(null)}
+                      >
+                        <span className={`chg-num chg-${c.type}`}>{c.label}</span>
+                        <span className={`chg-chip chg-${c.type}`}>{TYPE_LABEL[c.type]}</span>
+                        <span className="chg-text" title={c.text}>{c.text}</span>
+                        {/* Only what changed — an added or removed run has no
+                            second line, since its coordinates say nothing the
+                            highlighted box on the page does not already show. */}
+                        {c.type === 'styled' && c.style ? (
+                          <span className="chg-pos">{c.style.summary}</span>
+                        ) : c.type === 'moved' && c.offset != null ? (
+                          <span className="chg-pos">moved {fmtInch(c.offset, pc.pxPerInch)}</span>
+                        ) : null}
+                      </div>
+                  ))}
+                </div>
+              )
+            ) : bothEmpty ? (
+              <div className="diff-box">No selectable text on this page to diff.</div>
+            ) : (
+              <div className="diff-box">
+                {pc.diff.map((seg, i) => {
+                  const kind = seg.added ? 'added' : seg.removed ? 'removed' : '';
+                  const linkId = kind ? textToChange.get(normalize(seg.value)) : undefined;
+                  const linkGroup = linkId != null ? groupById.get(linkId) ?? null : null;
+                  return (
+                    <span
+                      key={i}
+                      className={`${kind} ${linkId != null ? 'locatable' : ''} ${
+                        linkGroup != null && linkGroup === hlGroup ? 'hl' : ''
+                      }`}
+                      onMouseEnter={linkId != null ? () => setHighlighted(linkId) : undefined}
+                      onMouseLeave={linkId != null ? () => setHighlighted(null) : undefined}
+                      title={linkId != null ? `Change #${labelById.get(linkId) ?? linkId} — highlighted on the page` : undefined}
+                    >
+                      {seg.value}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Word-level diff (linked to boxes where possible) */}
-      <div className="card section-pad">
-        <div className="plabel" style={{ marginBottom: 8 }}>Word-level diff</div>
-        {bothEmpty ? (
-          <div className="diff-box">No selectable text on this page to diff.</div>
-        ) : (
-          <div className="diff-box">
-            {pc.diff.map((seg, i) => {
-              const kind = seg.added ? 'added' : seg.removed ? 'removed' : '';
-              const linkId = kind ? textToChange.get(normalize(seg.value)) : undefined;
-              const linkGroup = linkId != null ? groupById.get(linkId) ?? null : null;
-              return (
-                <span
-                  key={i}
-                  className={`${kind} ${linkId != null ? 'locatable' : ''} ${
-                    linkGroup != null && linkGroup === hlGroup ? 'hl' : ''
-                  }`}
-                  onMouseEnter={linkId != null ? () => setHighlighted(linkId) : undefined}
-                  onMouseLeave={linkId != null ? () => setHighlighted(null) : undefined}
-                  title={linkId != null ? `Change #${linkId} — highlighted on the page above` : undefined}
-                >
-                  {seg.value}
-                </span>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        </aside>
+      )}
     </div>
   );
 }

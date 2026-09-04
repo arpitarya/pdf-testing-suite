@@ -32,6 +32,8 @@ interface AnnotationState {
   update: (id: string, text: string) => void;
   remove: (id: string) => void;
   clearPage: (page: number) => void;
+  /** Adopt a set read back from an imported bundle, discarding what is held. */
+  replaceAll: (annotations: Annotation[]) => void;
   clearAll: () => void;
 }
 
@@ -88,6 +90,10 @@ export const useAnnotationStore = create<AnnotationState>((set, get) => ({
 
   clearAll() {
     set({ annotations: [], editingId: null, placing: false });
+  },
+
+  replaceAll(annotations) {
+    set({ annotations, editingId: null, placing: false });
   },
 }));
 

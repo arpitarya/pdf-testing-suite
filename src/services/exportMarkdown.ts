@@ -16,7 +16,7 @@
 
 import type { CompareSummary, PageComparison } from '../types/compare';
 import { buildChanges, type Change } from './changes';
-import { download, judgePage, stamp, type ExportMeta, type ExportThresholds } from './exportReport';
+import { download, judgePage, MOVED_OFFSET_IN, stamp, type ExportMeta } from './exportReport';
 
 /** Severity drives the order a model should work through the findings. */
 type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -56,7 +56,6 @@ const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 function buildFindings(
   summary: CompareSummary,
   pageCache: Record<number, PageComparison>,
-  thresholds: ExportThresholds,
 ): Finding[] {
   const findings: Finding[] = [];
 
@@ -90,7 +89,7 @@ function buildFindings(
     }
 
     const ppi = pc.pxPerInch;
-    const changes = buildChanges(pc, thresholds.offsetIn);
+    const changes = buildChanges(pc, MOVED_OFFSET_IN);
     const counters = { text: 0, style: 0, layout: 0 };
     const movedOnPage: Change[] = [];
 
@@ -379,11 +378,10 @@ function findingBlock(f: Finding): string {
 export function buildMarkdownReport(
   summary: CompareSummary,
   meta: ExportMeta,
-  thresholds: ExportThresholds,
   pageCache: Record<number, PageComparison>,
 ): string {
-  const findings = buildFindings(summary, pageCache, thresholds);
-  const passCount = summary.pages.filter((p) => judgePage(p, thresholds)).length;
+  const findings = buildFindings(summary, pageCache);
+  const passCount = summary.pages.filter((p) => judgePage(p)).length;
   const overall = passCount === summary.pages.length;
 
   const counts = findings.reduce<Record<string, number>>((acc, f) => {
@@ -399,9 +397,6 @@ export function buildMarkdownReport(
   out.push(`- **PDF under test (generated)**: \`${meta.nameB}\` — ${meta.pageCountB} pages`);
   out.push(`- **Generated**: ${new Date(meta.generatedAt).toISOString()}`);
   out.push(`- **Overall**: ${overall ? 'PASS' : 'FAIL'} — ${passCount}/${summary.pages.length} pages within tolerance`);
-  out.push(
-    `- **Thresholds**: content ≥ ${thresholds.contentPct}%, pixels ≤ ${thresholds.pixelPct}%, offset ≤ ${thresholds.offsetIn}in`,
-  );
   out.push(`- **Total findings**: ${findings.length}` +
     (findings.length
       ? ` (${['missing-page', 'text', 'style', 'layout']
@@ -456,7 +451,7 @@ export function buildMarkdownReport(
           `Content match ${(page.contentMatch * 100).toFixed(1)}% · ` +
             `pixels different ${(page.pixelRatio * 100).toFixed(2)}% · ` +
             `largest shift ${(page.maxOffset / page.pxPerInch).toFixed(3)}in · ` +
-            `${judgePage(page, thresholds) ? 'within tolerance' : 'FAILS thresholds'}`,
+            `${judgePage(page) ? 'no measurable difference' : 'DIFFERS'}`,
         );
         out.push('');
       }
@@ -485,12 +480,11 @@ export function buildMarkdownReport(
 export function exportMarkdownReport(
   summary: CompareSummary,
   meta: ExportMeta,
-  thresholds: ExportThresholds,
   pageCache: Record<number, PageComparison>,
 ) {
   download(
     `pdf-remediation-${stamp()}.md`,
-    buildMarkdownReport(summary, meta, thresholds, pageCache),
+    buildMarkdownReport(summary, meta, pageCache),
     'text/markdown',
   );
 }

@@ -98,6 +98,16 @@ export const useSpecStore = create<SpecState>((set, get) => ({
   async loadSpecFile(file) {
     try {
       const text = await file.text();
+      // The checker consumes the JSON form. A raw sheet has to go through
+      // tools/spec-from-excel.py first, so say that rather than failing on a
+      // parse error the reader cannot act on.
+      if (/\.(csv|xlsx?)$/i.test(file.name)) {
+        set({
+          errorSpec:
+            'Convert the sheet to JSON first with tools/spec-from-excel.py, then drop the .json here.',
+        });
+        return;
+      }
       get().loadSpecText(text, file.name);
     } catch (err) {
       set({ errorSpec: err instanceof Error ? err.message : 'Failed to read spec file' });

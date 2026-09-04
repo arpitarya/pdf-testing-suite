@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
 import type { LayoutViewMode, MatchedPair, RenderedPageImage, TextItem } from '../../types/compare';
@@ -23,20 +23,14 @@ function pixelClass(ratio: number): string {
   return 'bad';
 }
 
-// Friendly, direction-worded shift labels (tested PDF relative to golden), in inches.
-function hShift(dx: number, ppi: number): string {
-  if (Math.abs(dx / ppi) < 0.005) return 'aligned';
-  return `${fmtInch(Math.abs(dx), ppi)} ${dx > 0 ? 'right' : 'left'}`;
-}
-function vShift(dy: number, ppi: number): string {
-  if (Math.abs(dy / ppi) < 0.005) return 'aligned';
-  return `${fmtInch(Math.abs(dy), ppi)} ${dy > 0 ? 'down' : 'up'}`;
-}
-
 const viewLabels: [LayoutViewMode, string][] = [
   ['side-by-side', 'Side by side'],
   ['diff', 'Pixel diff'],
 ];
+
+// Side by side is feature-flagged; with it off, Layout has a single view and
+// the tab strip has nothing to switch between, so it is not rendered at all.
+const VIEWS = viewLabels.filter(([v]) => v !== 'side-by-side' || flags.layoutSideBySide);
 
 // Display-only box marking the hovered run on a page image.
 function RunHighlight({ box, image }: { box: TextItem | undefined; image: RenderedPageImage }) {
@@ -120,25 +114,16 @@ export default function LayoutCompareView() {
   const computing = useCompareStore((s) => s.computing);
 
   const viewMode = useCompareStore((s) => s.viewMode);
-  const pixelThreshold = useCompareStore((s) => s.pixelThreshold);
-  const includeAA = useCompareStore((s) => s.includeAA);
   const offsetThresholdIn = useCompareStore((s) => s.offsetThresholdIn);
   const layoutZoom = useCompareStore((s) => s.layoutZoom);
 
   const setViewMode = useCompareStore((s) => s.setViewMode);
-  const setPixelThreshold = useCompareStore((s) => s.setPixelThreshold);
-  const setIncludeAA = useCompareStore((s) => s.setIncludeAA);
-  const setOffsetThreshold = useCompareStore((s) => s.setOffsetThreshold);
   const setLayoutZoom = useCompareStore((s) => s.setLayoutZoom);
 
   // Hovered run — links the geometry table and the page image both ways.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const rowsRef = useRef<(HTMLTableRowElement | null)[]>([]);
 
-  const hoverFromImage = (i: number | null) => {
-    setHoveredIdx(i);
-    if (i != null) rowsRef.current[i]?.scrollIntoView({ block: 'nearest' });
-  };
+  const hoverFromImage = (i: number | null) => setHoveredIdx(i);
 
   // Heatmap classification: edited runs become text regions, restyled runs style
   // regions, and merely-shifted runs layout regions — reused for both the coloured
@@ -176,8 +161,9 @@ export default function LayoutCompareView() {
     <div className="card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Controls */}
       <div className="layout-controls">
+        {VIEWS.length > 1 && (
         <div className="tabs">
-          {viewLabels.map(([v, label]) => (
+          {VIEWS.map(([v, label]) => (
             <button
               key={v}
               className={`tab ${viewMode === v ? 'active' : ''}`}
@@ -187,31 +173,12 @@ export default function LayoutCompareView() {
             </button>
           ))}
         </div>
+        )}
 
+        {/* Pixel sensitivity and anti-alias handling are engine settings now, not
+            controls: they sit at their defaults in the store. */}
         {viewMode === 'diff' && (
-          <>
-            <div className="range-control">
-              <span>Sensitivity</span>
-              <input
-                type="range"
-                min={0}
-                max={0.5}
-                step={0.01}
-                value={pixelThreshold}
-                onChange={(e) => setPixelThreshold(Number(e.target.value))}
-              />
-              <span>{pixelThreshold.toFixed(2)}</span>
-            </div>
-            <label className="range-control" style={{ cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={includeAA}
-                onChange={(e) => setIncludeAA(e.target.checked)}
-              />
-              Flag anti-aliasing
-            </label>
-            <span className="diff-hint">Hover a change for before → after</span>
-          </>
+          <span className="diff-hint">Hover a change for before → after</span>
         )}
 
         {viewMode === 'side-by-side' && flags.annotations && <AnnotationToolbar page={currentPage} />}
@@ -316,63 +283,6 @@ export default function LayoutCompareView() {
         </div>
       </div>
 
-      {/* Geometry table */}
-      <div className="geo-panel">
-        <div className="geo-head">
-          <span title="How far each shared text run sits in the PDF under test compared to where it was in the golden PDF.">
-            Text position shifts · {pc.match.matched.length} runs matched · largest shift{' '}
-            {fmtInch(pc.maxOffset, pc.pxPerInch)}
-          </span>
-          <span className="spacer" />
-          <label>
-            Flag shifts &gt;{' '}
-            <input
-              type="number"
-              min={0}
-              step={0.01}
-              value={offsetThresholdIn}
-              onChange={(e) => setOffsetThreshold(Number(e.target.value))}
-            />{' '}
-            in
-          </label>
-        </div>
-        <div className="geo-scroll">
-          {matched.length === 0 ? (
-            <div className="stage-notice">
-              No matching text runs to measure (no text layer, or no shared text).
-            </div>
-          ) : (
-            <table className="geo">
-              <thead>
-                <tr>
-                  <th>Text</th>
-                  <th>Horizontal</th>
-                  <th>Vertical</th>
-                  <th style={{ textAlign: 'right' }}>Total shift</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matched.map((p, i) => (
-                  <tr
-                    key={i}
-                    ref={(el) => (rowsRef.current[i] = el)}
-                    className={`${p.offset > offsetThresholdIn * pc.pxPerInch ? 'flagged' : ''} ${hoveredIdx === i ? 'hl' : ''}`}
-                    onMouseEnter={() => setHoveredIdx(i)}
-                    onMouseLeave={() => setHoveredIdx(null)}
-                  >
-                    <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.str}
-                    </td>
-                    <td className={Math.abs(p.dx / pc.pxPerInch) < 0.005 ? 'aligned-cell' : ''}>{hShift(p.dx, pc.pxPerInch)}</td>
-                    <td className={Math.abs(p.dy / pc.pxPerInch) < 0.005 ? 'aligned-cell' : ''}>{vShift(p.dy, pc.pxPerInch)}</td>
-                    <td className="num off">{fmtInch(p.offset, pc.pxPerInch)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

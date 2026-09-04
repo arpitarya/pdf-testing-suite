@@ -3,13 +3,7 @@
 // The per-page renderers are exported so the batch report can reuse them.
 
 import type { CompareSummary, PageComparison, PageSummary, RenderedPageImage } from '../types/compare';
-import { buildChanges, diffHotspots, isOnSide, region, TYPE_LABEL, CHANGE_COLOR, type Change } from './changes';
-
-export interface ExportThresholds {
-  contentPct: number; // e.g. 99   → content match must be ≥ 99%
-  pixelPct: number;   // e.g. 2    → pixels different must be ≤ 2%
-  offsetIn: number;   // e.g. 0.03 → max offset must be ≤ 0.03 inches
-}
+import { buildChanges, diffHotspots, isOnSide, region, summaryPageDiffers, TYPE_LABEL, CHANGE_COLOR, type Change } from './changes';
 
 export interface ExportMeta {
   nameA: string;
@@ -19,16 +13,19 @@ export interface ExportMeta {
   generatedAt: string; // ISO string
 }
 
+/** What counts as "moved" in a report, in inches. Fixed, not user-tunable. */
+export const MOVED_OFFSET_IN = 0.02;
+
 export const pct = (n: number) => (n * 100).toFixed(1) + '%';
 export const inchStr = (px: number, pxPerInch: number) => (px / pxPerInch).toFixed(2) + '″';
 
-export function judgePage(p: PageSummary, t: ExportThresholds): boolean {
-  if (p.missing) return false;
-  return (
-    p.contentMatch * 100 >= t.contentPct &&
-    p.pixelRatio * 100 <= t.pixelPct &&
-    p.maxOffset / p.pxPerInch <= t.offsetIn
-  );
+/**
+ * A page passes when it does not differ. There are no tunable thresholds: the
+ * question a report answers is "did anything change?", and a knob that lets a
+ * real change be declared acceptable only hides it.
+ */
+export function judgePage(p: PageSummary): boolean {
+  return !summaryPageDiffers(p);
 }
 
 export function download(filename: string, content: string | Blob, mime: string) {
@@ -57,54 +54,53 @@ export function escapeHtml(s: string): string {
 export function buildJsonReport(
   summary: CompareSummary,
   meta: ExportMeta,
-  thresholds: ExportThresholds,
 ): string {
-  const pages = summary.pages.map((p) => ({
+  // Failures only, matching every other report.
+  const pages = failingPages(summary).map((p) => ({
     page: p.pageIndex + 1,
     contentMatch: p.contentMatch,
     pixelRatio: p.pixelRatio,
     maxOffsetInches: Number((p.maxOffset / p.pxPerInch).toFixed(3)),
     missing: p.missing,
-    pass: judgePage(p, thresholds),
+    pass: judgePage(p),
   }));
 
   const payload = {
     meta,
-    thresholds,
-    overall: pages.every((p) => p.pass) ? 'PASS' : 'FAIL',
+    overall: pages.length === 0 ? 'PASS' : 'FAIL',
     summary: {
       pageCountA: summary.pageCountA,
       pageCountB: summary.pageCountB,
       pagesCompared: summary.pages.length,
-      passCount: pages.filter((p) => p.pass).length,
-      failCount: pages.filter((p) => !p.pass).length,
+      passCount: summary.pages.length - pages.length,
+      failCount: pages.length,
     },
-    pages,
+    failedPages: pages,
   };
 
   return JSON.stringify(payload, null, 2);
 }
 
-export function exportJson(summary: CompareSummary, meta: ExportMeta, thresholds: ExportThresholds) {
-  download(`pdf-comparison-${stamp()}.json`, buildJsonReport(summary, meta, thresholds), 'application/json');
+export function exportJson(summary: CompareSummary, meta: ExportMeta) {
+  download(`pdf-comparison-${stamp()}.json`, buildJsonReport(summary, meta), 'application/json');
 }
 
 // ── CSV export ────────────────────────────────────────────────────────
-export function buildCsvReport(summary: CompareSummary, thresholds: ExportThresholds): string {
+export function buildCsvReport(summary: CompareSummary): string {
   const header = ['Page', 'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Missing', 'Result'];
-  const rows = summary.pages.map((p) => [
+  const rows = failingPages(summary).map((p) => [
     p.pageIndex + 1,
     (p.contentMatch * 100).toFixed(2),
     (p.pixelRatio * 100).toFixed(2),
     (p.maxOffset / p.pxPerInch).toFixed(3),
     p.missing ? 'yes' : 'no',
-    judgePage(p, thresholds) ? 'PASS' : 'FAIL',
+    judgePage(p) ? 'PASS' : 'FAIL',
   ]);
   return [header, ...rows].map((r) => r.join(',')).join('\r\n');
 }
 
-export function exportCsv(summary: CompareSummary, thresholds: ExportThresholds) {
-  download(`pdf-comparison-${stamp()}.csv`, buildCsvReport(summary, thresholds), 'text/csv');
+export function exportCsv(summary: CompareSummary) {
+  download(`pdf-comparison-${stamp()}.csv`, buildCsvReport(summary), 'text/csv');
 }
 
 // ── shared HTML report pieces (reused by the batch report) ────────────
@@ -174,15 +170,30 @@ export const REPORT_CSS = `
   .pair-block { border: 1px solid #cbd5e1; border-radius: 12px; padding: 22px; margin-bottom: 26px; }
   .pair-block > h2 { margin: 0 0 4px; }
   footer { margin-top: 32px; color: #94a3b8; font-size: 12px; }
+  td.allclear { color: #15803d; font-weight: 600; }
   @media print { body { padding: 0; } }
 `;
 
-/** The per-page metric rows (<tr>…) for the summary table. */
-export function reportPageRows(summary: CompareSummary, thresholds: ExportThresholds): string {
-  return summary.pages
+/**
+ * Pages that did not pass — a failing page or one missing from a side.
+ *
+ * Every report is a list of what needs attention, so pages within tolerance are
+ * left out entirely rather than padding the output with rows nobody acts on.
+ */
+export function failingPages(summary: CompareSummary): PageSummary[] {
+  return summary.pages.filter((p) => !judgePage(p));
+}
+
+/** The per-page metric rows (<tr>…) for the summary table. Failures only. */
+export function reportPageRows(summary: CompareSummary): string {
+  const failed = failingPages(summary);
+  if (failed.length === 0) {
+    return `<tr class="pass"><td colspan="5" class="allclear">No page fell outside tolerance.</td></tr>`;
+  }
+  return failed
     .map((p) => {
       const missing = p.missing;
-      const pass = judgePage(p, thresholds);
+      const pass = judgePage(p);
       return `<tr class="${missing ? 'missing' : pass ? 'pass' : 'fail'}">
         <td>${p.pageIndex + 1}</td>
         <td>${missing ? '—' : pct(p.contentMatch)}</td>
@@ -226,13 +237,12 @@ function shrinkDataUrl(dataUrl: string, maxW = REPORT_IMG_MAX_W, quality = REPOR
 export async function reportPageDetail(
   summary: CompareSummary,
   pageCache: Record<number, PageComparison>,
-  thresholds: ExportThresholds,
 ): Promise<string> {
   const sections: string[] = [];
-  for (const p of summary.pages) {
+  for (const p of failingPages(summary)) {
     const pc = pageCache[p.pageIndex];
     if (!pc) continue;
-    const changes = buildChanges(pc, thresholds.offsetIn);
+    const changes = buildChanges(pc, MOVED_OFFSET_IN);
 
     const notes = pc.notes.length
       ? `<ul class="notes">${pc.notes.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`
@@ -250,7 +260,7 @@ export async function reportPageDetail(
         .filter((c) => isOnSide(c, side))
         .map((c) => {
           const box = (side === 'A' ? c.a : c.b)!;
-          return `<div class="rbox" style="left:${(box.x / image.width) * 100}%;top:${(box.y / image.height) * 100}%;width:${(box.w / image.width) * 100}%;height:${(box.h / image.height) * 100}%;border-color:${CHANGE_COLOR[c.type]};background:${CHANGE_COLOR[c.type]}22"><span class="rbadge" style="background:${CHANGE_COLOR[c.type]}">${c.id}</span></div>`;
+          return `<div class="rbox" style="left:${(box.x / image.width) * 100}%;top:${(box.y / image.height) * 100}%;width:${(box.w / image.width) * 100}%;height:${(box.h / image.height) * 100}%;border-color:${CHANGE_COLOR[c.type]};background:${CHANGE_COLOR[c.type]}22"><span class="rbadge" style="background:${CHANGE_COLOR[c.type]}">${c.label}</span></div>`;
         })
         .join('');
       return `<div class="pane"><div class="pane-label">${label}</div><div class="rwrap"><img src="${src}" alt="${side}" />${boxes}</div></div>`;
@@ -307,7 +317,7 @@ export async function reportPageDetail(
                   ? `moved ${ii(c.offset)}`
                   : `${ii(box.x)}, ${ii(box.y)}`;
             const where = dims ? region(box, dims.width, dims.height) : '';
-            return `<li><span class="rnum" style="background:${CHANGE_COLOR[c.type]}">${c.id}</span>
+            return `<li><span class="rnum" style="background:${CHANGE_COLOR[c.type]}">${c.label}</span>
               <span class="rtype" style="color:${CHANGE_COLOR[c.type]}">${TYPE_LABEL[c.type]}</span>
               <span class="rtext">${escapeHtml(c.text)}</span>
               <span class="rpos">${where} · ${pos}</span></li>`;
@@ -335,12 +345,11 @@ export async function reportPageDetail(
 export async function buildHtmlReport(
   summary: CompareSummary,
   meta: ExportMeta,
-  thresholds: ExportThresholds,
   pageCache: Record<number, PageComparison>,
 ): Promise<string> {
-  const overall = summary.pages.every((p) => judgePage(p, thresholds));
-  const passCount = summary.pages.filter((p) => judgePage(p, thresholds)).length;
-  const detail = await reportPageDetail(summary, pageCache, thresholds);
+  const overall = summary.pages.every((p) => judgePage(p));
+  const passCount = summary.pages.filter((p) => judgePage(p)).length;
+  const detail = await reportPageDetail(summary, pageCache);
 
   const html = `<!doctype html>
 <html lang="en">
@@ -358,11 +367,10 @@ export async function buildHtmlReport(
     <div><span>PDF to test:</span> <b>${escapeHtml(meta.nameB)}</b> (${meta.pageCountB} pages)</div>
     <div><span>Pages passing:</span> <b>${passCount} / ${summary.pages.length}</b></div>
     <div><span>Generated:</span> <b>${new Date(meta.generatedAt).toLocaleString()}</b></div>
-    <div><span>Thresholds:</span> <b>content ≥ ${thresholds.contentPct}% · pixels ≤ ${thresholds.pixelPct}% · offset ≤ ${thresholds.offsetIn}″</b></div>
   </div>
   <table>
     <thead><tr><th>Page</th><th>Content match</th><th>Pixels different</th><th>Max offset</th><th>Result</th></tr></thead>
-    <tbody>${reportPageRows(summary, thresholds)}</tbody>
+    <tbody>${reportPageRows(summary)}</tbody>
   </table>
   <h2>Per-page detail</h2>
   ${detail}
@@ -376,9 +384,8 @@ export async function buildHtmlReport(
 export async function exportHtmlReport(
   summary: CompareSummary,
   meta: ExportMeta,
-  thresholds: ExportThresholds,
   pageCache: Record<number, PageComparison>,
 ) {
-  const html = await buildHtmlReport(summary, meta, thresholds, pageCache);
+  const html = await buildHtmlReport(summary, meta, pageCache);
   download(`pdf-comparison-report-${stamp()}.html`, html, 'text/html');
 }

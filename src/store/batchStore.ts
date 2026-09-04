@@ -25,11 +25,6 @@ export interface BatchPairResult {
   pageCache: Record<number, PageComparison>;
 }
 
-export interface BatchThresholds {
-  contentPct: number;
-  pixelPct: number;
-  offsetIn: number;
-}
 
 interface BatchState {
   filesA: BatchFile[];
@@ -43,7 +38,6 @@ interface BatchState {
 
   pixelThreshold: number;
   includeAA: boolean;
-  thresholds: BatchThresholds;
 
   running: boolean;
   progress: { pairIndex: number; pairTotal: number; page: number; pageTotal: number } | null;
@@ -56,7 +50,6 @@ interface BatchState {
   setPairSide: (pairId: string, side: 'A' | 'B', fileId: string | null) => void;
   removePair: (pairId: string) => void;
   autoPairByOrder: () => void;
-  setThreshold: (key: keyof BatchThresholds, value: number) => void;
   run: () => Promise<void>;
   clearAll: () => void;
   loadExample: () => Promise<void>;
@@ -87,7 +80,6 @@ export const useBatchStore = create<BatchState>((set, get) => ({
 
   pixelThreshold: 0.1,
   includeAA: false,
-  thresholds: { contentPct: 99, pixelPct: 2, offsetIn: 0.03 },
 
   running: false,
   progress: null,
@@ -146,10 +138,6 @@ export const useBatchStore = create<BatchState>((set, get) => ({
     const pairs: BatchPair[] = [];
     for (let i = 0; i < n; i++) pairs.push({ id: nid(), aId: filesA[i].id, bId: filesB[i].id });
     set({ pairs, results: {} });
-  },
-
-  setThreshold(key, value) {
-    set((s) => ({ thresholds: { ...s.thresholds, [key]: value } }));
   },
 
   async run() {

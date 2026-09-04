@@ -9,7 +9,9 @@ import ContentCompareView from './components/compare/ContentCompareView';
 import LayoutCompareView from './components/compare/LayoutCompareView';
 import CompareReport from './components/compare/CompareReport';
 import ExportMenu from './components/compare/ExportMenu';
+import ImportBundleButton from './components/compare/ImportBundleButton';
 import BatchExportMenu from './components/batch/BatchExportMenu';
+import { flags } from './flags';
 import SpecExportMenu from './components/spec/SpecExportMenu';
 import SpecTestView from './components/spec/SpecTestView';
 import MeasureView from './components/measure/MeasureView';
@@ -26,13 +28,13 @@ const WORKSPACE_TABS: [Workspace, string][] = [
   ['batch', 'Batch compare'],
   ['compare', 'Compare 2 PDFs'],
   ['spec', 'Spec driven comparison'],
-  ['measure', 'Utilities'],
-];
+  ['measure', 'Inspect PDF'],
+].filter(([id]) => id !== 'batch' || flags.batchCompare) as [Workspace, string][];
 
 const MODE_TABS: [CompareMode, string, string][] = [
-  ['content', '📝', 'Content'],
-  ['layout', '📐', 'Layout'],
-  ['report', '📊', 'Report'],
+  ['content', '📝', 'Side by side'],
+  ['layout', '📐', 'Overlapping'],
+  ['report', '📊', 'View report'],
 ];
 
 export default function App() {
@@ -71,36 +73,39 @@ export default function App() {
     }
   }, [bothLoaded, summary, computingSummary, totalPages, computeAll]);
 
+  // The active workspace, with a disabled one folded back to Compare. Guarding
+  // here rather than at each use means a flag flip cannot strand the app on a
+  // tab that no longer exists.
+  const ws: Workspace = workspace === 'batch' && !flags.batchCompare ? 'compare' : workspace;
+
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-title">
-          🔍 PDF Compare <span className="badge">QA</span>
-        </div>
         <div className="workspace-tabs">
           {WORKSPACE_TABS.map(([id, label]) => (
             <button
               key={id}
-              className={`ws-tab ${workspace === id ? 'active' : ''}`}
+              className={`ws-tab ${ws === id ? 'active' : ''}`}
               onClick={() => setWorkspace(id)}
             >
               {label}
             </button>
           ))}
         </div>
-        {workspace === 'compare' && bothLoaded && (
+        {ws === 'compare' && bothLoaded && (
           <div className="upload-row">
             <PdfUploadSlot side="A" label="Golden PDF" hint="Drop the golden PDF" />
             <PdfUploadSlot side="B" label="PDF to test" hint="Drop the PDF to test" />
           </div>
         )}
         {/* Every workspace that produces results exports from the same corner.
-            Utilities has nothing to export, so it gets no button at all. */}
-        {workspace !== 'measure' && (
+            Inspect PDF has nothing to export, so it gets no button at all. */}
+        {ws !== 'measure' && (
           <div className="header-right">
-            {workspace === 'compare' ? (
+            {ws === 'compare' && <ImportBundleButton />}
+            {ws === 'compare' ? (
               <ExportMenu />
-            ) : workspace === 'batch' ? (
+            ) : ws === 'batch' ? (
               <BatchExportMenu />
             ) : (
               <SpecExportMenu />
@@ -109,11 +114,11 @@ export default function App() {
         )}
       </header>
 
-      {workspace === 'spec' ? (
+      {ws === 'spec' ? (
         <SpecTestView />
-      ) : workspace === 'measure' ? (
+      ) : ws === 'measure' ? (
         <MeasureView />
-      ) : workspace === 'batch' ? (
+      ) : ws === 'batch' ? (
         <BatchView onOpenCompare={() => setWorkspace('compare')} />
       ) : (
         <>
@@ -162,7 +167,7 @@ export default function App() {
                         <span className="spinner" /> Loading…
                       </>
                     ) : (
-                      'or load example invoices'
+                      'or load example PDFs'
                     )}
                   </button>
                 </p>

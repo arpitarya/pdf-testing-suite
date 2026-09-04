@@ -143,12 +143,14 @@ export default function SpecTestView() {
   return (
     <>
       <div className="subtoolbar spec-toolbar">
-        <div className="upload-row" style={{ maxWidth: 560 }}>
-          <SpecUpload kind="pdf" label="PDF to test" hint="Drop the generated PDF" accept=".pdf,application/pdf"
+        {pdfDoc && spec && (
+          <div className="upload-row" style={{ maxWidth: 560 }}>
+            <SpecUpload kind="pdf" label="PDF to test" hint="Drop the generated PDF" accept=".pdf,application/pdf"
             name={pdfName} loading={loadingPdf} error={errorPdf} onFile={loadPdfFile} onClear={clearPdf} />
-          <SpecUpload kind="spec" label="JSON spec" hint="Drop the spec file" accept=".json,application/json"
+          <SpecUpload kind="spec" label="CSV spec" hint="Drop the spec file" accept=".json,.csv,application/json,text/csv"
             name={specName} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
-        </div>
+          </div>
+        )}
         <div className="spacer" />
         {running && <span className="summary-chip scanning"><span className="spinner" style={{ width: 12, height: 12 }} /> Checking {progress ? `${progress.current}/${progress.total}` : '…'}</span>}
         {report && (
@@ -264,13 +266,21 @@ export default function SpecTestView() {
             <div className="icon">📄🆚🧾</div>
             <h2>Test a new page against a spec</h2>
             <p>
-              When there's no reference PDF — only a design spec — upload the <strong>generated PDF</strong> and a
-              <strong> JSON spec</strong> that describes the expected content and layout (static text, images, tables,
+              When there's no reference PDF — only a design spec — upload the <strong>generated PDF</strong> and the
+              <strong> spec</strong> that describes the expected content and layout (static text, images, tables,
               paragraph spacing) with positions in inches. The checker verifies the PDF against it.
             </p>
-            <p style={{ marginTop: 20 }}>
-              <button className="btn primary" onClick={loadExample} disabled={loadingExample}>
-                {loadingExample ? (<><span className="spinner" style={{ borderTopColor: '#fff', borderColor: 'rgba(255,255,255,0.4)' }} /> Loading…</>) : 'Load example spec + PDF'}
+
+            <div className="upload-row stacked">
+              <SpecUpload kind="pdf" label="PDF to test" hint="Drop the generated PDF" accept=".pdf,application/pdf"
+            name={pdfName} loading={loadingPdf} error={errorPdf} onFile={loadPdfFile} onClear={clearPdf} />
+          <SpecUpload kind="spec" label="CSV spec" hint="Drop the spec file" accept=".json,.csv,application/json,text/csv"
+            name={specName} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
+            </div>
+
+            <p className="empty-aside">
+              <button className="btn quiet" onClick={loadExample} disabled={loadingExample}>
+                {loadingExample ? (<><span className="spinner" /> Loading…</>) : 'or load an example spec + PDF'}
               </button>
             </p>
           </div>

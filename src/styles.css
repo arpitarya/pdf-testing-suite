@@ -103,7 +103,7 @@ button {
 
 /* Pinned to the far right of the header whether or not the upload row (which
    is flex: 1) happens to be mounted. */
-.header-right { margin-left: auto; flex-shrink: 0; }
+.header-right { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 
 /* ── Buttons ───────────────────────────────────────────── */
 .btn {
@@ -294,8 +294,10 @@ button.summary-chip { cursor: pointer; }
 .section-pad { padding: 16px; }
 
 /* ── Content view ──────────────────────────────────────── */
-.pages-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.page-frame { text-align: center; }
+/* Zoomable: the two pages are laid out at their computed display size and the
+   row scrolls rather than squashing them back down. */
+.pages-row { display: flex; justify-content: center; gap: 16px; overflow: auto; }
+.page-frame { text-align: center; flex: 0 0 auto; }
 .page-frame .plabel { font-weight: 600; font-size: 12px; margin-bottom: 6px; color: var(--muted); }
 .page-frame img { max-width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 .page-missing {
@@ -337,8 +339,8 @@ button.summary-chip { cursor: pointer; }
 .legend-toggle .cnt { font-variant-numeric: tabular-nums; color: var(--faint); font-weight: 600; }
 .muted-empty { color: var(--muted); }
 
-.page-overlay-wrap { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
-.page-overlay-wrap img { max-width: 100%; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.page-overlay-wrap { position: relative; display: inline-block; line-height: 0; }
+.page-overlay-wrap img { display: block; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
 
 .chg-box {
   position: absolute; box-sizing: border-box; border: 1.5px solid transparent;
@@ -623,6 +625,32 @@ table.report td.res-fail { color: var(--red); font-weight: 700; }
   padding: 10px 14px; border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
+.viewer-title { font-size: 14px; font-weight: 600; flex-shrink: 0; }
+/* The Report tab renders the report in place, so the pane owns the body height. */
+/* The header row is fixed-height; a failure message hangs below the button
+   rather than pushing the toolbar around. */
+.import-zip { position: relative; flex-shrink: 0; }
+.import-zip-error {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  width: max-content; max-width: 320px;
+  background: var(--panel); color: var(--red);
+  border: 1px solid var(--red); border-radius: 8px;
+  padding: 7px 11px; font-size: 12.5px; line-height: 1.45;
+  box-shadow: var(--shadow); cursor: pointer;
+}
+.imported-tag {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--indigo); background: var(--indigo-soft); padding: 2px 8px; border-radius: 999px;
+  flex-shrink: 0;
+}
+/* Two quiet actions sit side by side under the empty state. */
+.empty-aside { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+.report-pane { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.report-pane-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.report-pane-body { flex: 1; min-height: 0; display: flex; background: #f1f5f9; }
 .viewer-sub {
   font-size: 12px; color: var(--faint);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
@@ -679,6 +707,96 @@ table.report td.res-fail { color: var(--red); font-weight: 700; }
   .viewer { border-radius: 0; max-width: none; }
   .viewer-sub { display: none; }
   .viewer-md { padding: 18px 16px; }
+}
+
+/* With the drawer out, the comparison slides left into the space it leaves
+   instead of sitting behind it. Padding rather than a transform, so the pages
+   re-centre in the narrower column and nothing ends up off-screen. */
+.content-view { transition: padding-right 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.content-view.drawer-open { padding-right: min(440px, 92vw); }
+/* Too narrow to give the drawer its own column — let it overlay instead. */
+@media (max-width: 980px) {
+  .content-view.drawer-open { padding-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content-view { transition: none; }
+}
+
+/* ── Changes drawer ────────────────────────────────────── */
+/* Non-modal: no backdrop, so the pages stay visible and hovering an entry can
+   still highlight its box on them. */
+.chg-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(440px, 92vw);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: -10px 0 30px rgba(15, 23, 42, 0.14);
+  animation: drawerIn 0.18s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+@keyframes drawerIn {
+  from { transform: translateX(18px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chg-drawer { animation: none; }
+}
+
+.chg-drawer-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chg-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
+
+/* The list is height-capped in the page layout; in the drawer it owns the scroll. */
+.chg-drawer .chg-list { max-height: none; overflow: visible; }
+/* A 440px column is too narrow for text and position on one line. */
+.chg-drawer .chg-item { flex-wrap: wrap; row-gap: 2px; align-items: baseline; }
+.chg-drawer .chg-text { flex: 1 1 auto; white-space: normal; }
+.chg-drawer .chg-pos { flex: 1 0 100%; padding-left: 30px; }
+.chg-drawer .diff-box { max-height: none; }
+
+/* The primary way into the change list, so it reads as an action rather than a
+   toggle. Filled while closed; tinted once the drawer is open. */
+.view-changes {
+  background: var(--indigo); border-color: var(--indigo); color: #fff; font-weight: 600;
+}
+.view-changes:hover:not(:disabled) { background: #4338ca; border-color: #4338ca; color: #fff; }
+.view-changes.on { background: var(--indigo-soft); border-color: var(--indigo); color: var(--indigo); }
+.view-changes.on:hover:not(:disabled) { background: var(--indigo-soft); border-color: var(--indigo); }
+
+/* A page with a panel docking on its right edge — the button says what it does
+   rather than relying on the label alone. */
+.drawer-ico {
+  position: relative;
+  width: 15px; height: 12px;
+  border: 1.4px solid currentColor;
+  border-radius: 3px;
+  flex-shrink: 0;
+  overflow: hidden;
+  opacity: .95;
+}
+.drawer-ico > span {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 5px;
+  background: currentColor;
+  animation: drawerHint 3.4s ease-in-out infinite;
+}
+@keyframes drawerHint {
+  0%, 10%   { transform: translateX(100%); }
+  28%, 72%  { transform: none; }
+  90%, 100% { transform: translateX(100%); }
+}
+/* Open: the panel is docked, so the hint stops. */
+.view-changes.on .drawer-ico > span { animation: none; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .drawer-ico > span { animation: none; transform: none; }
 }
 
 /* ── Spinner ───────────────────────────────────────────── */
@@ -771,6 +889,11 @@ table.spec-checks tr.no td.ca { color: var(--red); }
 
 /* readout panel */
 .measure-panel { position: sticky; top: 16px; }
+.mp-sub {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--faint); margin: 14px 0 4px;
+}
+.mp-sub:first-of-type { margin-top: 0; }
 .mp-head { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
 .mp-ic { font-size: 18px; }
 .mp-title { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

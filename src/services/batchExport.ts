@@ -13,7 +13,6 @@ import {
   reportPageDetail,
   reportPageRows,
   stamp,
-  type ExportThresholds,
 } from './exportReport';
 
 export interface BatchPairExport {
@@ -24,8 +23,8 @@ export interface BatchPairExport {
   pageCache: Record<number, PageComparison>;
 }
 
-function pairVerdict(summary: CompareSummary, t: ExportThresholds): boolean {
-  return summary.pages.every((p) => judgePage(p, t));
+function pairVerdict(summary: CompareSummary): boolean {
+  return summary.pages.every((p) => judgePage(p));
 }
 
 function worst(summary: CompareSummary) {
@@ -40,16 +39,19 @@ function worst(summary: CompareSummary) {
 // ── HTML ──────────────────────────────────────────────────────────────
 export async function exportBatchHtml(
   pairs: BatchPairExport[],
-  thresholds: ExportThresholds,
   onProgress?: (done: number, total: number) => void,
 ) {
   const now = new Date();
-  const overallPass = pairs.every((p) => pairVerdict(p.summary, thresholds));
-  const passCount = pairs.filter((p) => pairVerdict(p.summary, thresholds)).length;
+  const overallPass = pairs.every((p) => pairVerdict(p.summary));
+  const passCount = pairs.filter((p) => pairVerdict(p.summary)).length;
 
-  const overviewRows = pairs
+  // Overview and detail both cover the failing pairs only.
+  const failingPairs = pairs.filter((p) => !pairVerdict(p.summary));
+  const overviewRows = failingPairs.length === 0
+    ? `<tr class="pass"><td colspan="9" class="allclear">No comparison fell outside tolerance.</td></tr>`
+    : failingPairs
     .map((p) => {
-      const pass = pairVerdict(p.summary, thresholds);
+      const pass = pairVerdict(p.summary);
       const w = worst(p.summary);
       return `<tr class="${pass ? 'pass' : 'fail'}">
         <td><a class="jump" href="#pair-${p.index}">${p.index}</a></td>
@@ -68,14 +70,18 @@ export async function exportBatchHtml(
   const pairSections: string[] = [];
   for (let i = 0; i < pairs.length; i++) {
     const p = pairs[i];
-    const pass = pairVerdict(p.summary, thresholds);
-    const detail = await reportPageDetail(p.summary, p.pageCache, thresholds);
+    const pass = pairVerdict(p.summary);
+    if (pass) {
+      onProgress?.(i + 1, pairs.length);
+      continue;
+    }
+    const detail = await reportPageDetail(p.summary, p.pageCache);
     pairSections.push(`<div class="pair-block" id="pair-${p.index}">
       <h2>Pair ${p.index}: ${escapeHtml(p.aName)} &nbsp;vs&nbsp; ${escapeHtml(p.bName)} <span class="chip ${pass ? 'pass' : 'fail'}">${pass ? 'PASS' : 'FAIL'}</span></h2>
       <p class="sub">Golden: ${p.summary.pageCountA} pages · Tested: ${p.summary.pageCountB} pages</p>
       <table>
         <thead><tr><th>Page</th><th>Content match</th><th>Pixels different</th><th>Max offset</th><th>Result</th></tr></thead>
-        <tbody>${reportPageRows(p.summary, thresholds)}</tbody>
+        <tbody>${reportPageRows(p.summary)}</tbody>
       </table>
       ${detail}
     </div>`);
@@ -93,9 +99,6 @@ export async function exportBatchHtml(
   <h1>Batch PDF Comparison Report</h1>
   <p class="sub">${pairs.length} comparison${pairs.length === 1 ? '' : 's'} · generated ${now.toLocaleString()}</p>
   <div class="verdict ${overallPass ? 'pass' : 'fail'}">${overallPass ? '✓ ALL PAIRS PASS' : '✗ SOME PAIRS FAIL'} — ${passCount}/${pairs.length}</div>
-  <div class="meta-grid">
-    <div><span>Thresholds:</span> <b>content ≥ ${thresholds.contentPct}% · pixels ≤ ${thresholds.pixelPct}% · offset ≤ ${thresholds.offsetIn}″</b></div>
-  </div>
   <h2>Overview</h2>
   <table>
     <thead><tr><th>#</th><th>Golden PDF</th><th>PDF tested</th><th>Pages</th><th>Differing</th><th>Worst content</th><th>Worst pixels</th><th>Worst offset</th><th>Result</th></tr></thead>
@@ -110,39 +113,42 @@ export async function exportBatchHtml(
 }
 
 // ── JSON ──────────────────────────────────────────────────────────────
-export function exportBatchJson(pairs: BatchPairExport[], thresholds: ExportThresholds) {
+export function exportBatchJson(pairs: BatchPairExport[]) {
   const payload = {
     generatedAt: new Date().toISOString(),
-    thresholds,
-    overall: pairs.every((p) => pairVerdict(p.summary, thresholds)) ? 'PASS' : 'FAIL',
+        overall: pairs.every((p) => pairVerdict(p.summary)) ? 'PASS' : 'FAIL',
     pairCount: pairs.length,
-    pairs: pairs.map((p) => ({
+    failedPairs: pairs
+      .filter((p) => !pairVerdict(p.summary))
+      .map((p) => ({
       index: p.index,
       sideA: p.aName,
       sideB: p.bName,
       pageCountA: p.summary.pageCountA,
       pageCountB: p.summary.pageCountB,
-      verdict: pairVerdict(p.summary, thresholds) ? 'PASS' : 'FAIL',
-      pages: p.summary.pages.map((pg) => ({
-        page: pg.pageIndex + 1,
-        contentMatch: pg.contentMatch,
-        pixelRatio: pg.pixelRatio,
-        maxOffsetInches: Number((pg.maxOffset / pg.pxPerInch).toFixed(3)),
-        missing: pg.missing,
-        pass: judgePage(pg, thresholds),
-      })),
+      verdict: pairVerdict(p.summary) ? 'PASS' : 'FAIL',
+      failedPages: p.summary.pages
+        .filter((pg) => !judgePage(pg))
+        .map((pg) => ({
+          page: pg.pageIndex + 1,
+          contentMatch: pg.contentMatch,
+          pixelRatio: pg.pixelRatio,
+          maxOffsetInches: Number((pg.maxOffset / pg.pxPerInch).toFixed(3)),
+          missing: pg.missing,
+        })),
     })),
   };
   download(`pdf-batch-${stamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
 }
 
 // ── CSV ───────────────────────────────────────────────────────────────
-export function exportBatchCsv(pairs: BatchPairExport[], thresholds: ExportThresholds) {
+export function exportBatchCsv(pairs: BatchPairExport[]) {
   const header = ['Pair', 'GoldenPdf', 'TestedPdf', 'Page', 'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Missing', 'Result'];
   const esc = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const rows: string[][] = [];
   for (const p of pairs) {
     for (const pg of p.summary.pages) {
+      if (judgePage(pg)) continue;
       rows.push([
         String(p.index),
         esc(p.aName),
@@ -152,7 +158,7 @@ export function exportBatchCsv(pairs: BatchPairExport[], thresholds: ExportThres
         (pg.pixelRatio * 100).toFixed(2),
         (pg.maxOffset / pg.pxPerInch).toFixed(3),
         pg.missing ? 'yes' : 'no',
-        judgePage(pg, thresholds) ? 'PASS' : 'FAIL',
+        judgePage(pg) ? 'PASS' : 'FAIL',
       ]);
     }
   }
@@ -165,9 +171,9 @@ export { pairVerdict, worst };
 // ── Markdown remediation ──────────────────────────────────────────────
 // One document covering every pair, so a model fixing an AEM XDP template reads
 // a single file rather than one per comparison.
-export function exportBatchMarkdown(pairs: BatchPairExport[], thresholds: ExportThresholds) {
+export function exportBatchMarkdown(pairs: BatchPairExport[]) {
   const now = new Date();
-  const failing = pairs.filter((p) => !pairVerdict(p.summary, thresholds));
+  const failing = pairs.filter((p) => !pairVerdict(p.summary));
 
   const parts: string[] = [];
   parts.push('# Batch Template Remediation Report');
@@ -196,7 +202,7 @@ export function exportBatchMarkdown(pairs: BatchPairExport[], thresholds: Export
   parts.push('');
 
   for (const p of pairs) {
-    if (pairVerdict(p.summary, thresholds)) continue;
+    if (pairVerdict(p.summary)) continue;
     parts.push(`# Document ${p.index}: ${p.bName}`);
     parts.push('');
     const body = buildMarkdownReport(
@@ -208,8 +214,7 @@ export function exportBatchMarkdown(pairs: BatchPairExport[], thresholds: Export
         pageCountB: p.summary.pageCountB,
         generatedAt: now.toISOString(),
       },
-      thresholds,
-      p.pageCache,
+            p.pageCache,
     );
     // The shared preamble is stated once at the top of the batch file rather
     // than repeated for every document.

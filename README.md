@@ -107,6 +107,11 @@ Click **Load example spec + PDF** to try it: a 2-page statement (`spec-sample.pd
 a too-narrow table, wrong line spacing, and a missing watermark) so every check type is demonstrated.
 Export the result as an **HTML report** (annotated pages + checks) or **JSON**.
 
+> **Reports list failures only.** Every report — HTML, JSON, CSV and the batch and
+> spec equivalents — includes the pages, pairs and elements that fell outside
+> tolerance, and omits the ones that passed. Pass counts still appear in the
+> summary header, and a report with nothing to fix says so explicitly.
+
 ## Export
 
 The **Export** menu sits in the top right of the window and is available from every
@@ -147,8 +152,11 @@ Features are switched on and off from **`flag.env`** at the repo root — plain 
 `#` for comments:
 
 ```
-FEATURE_ANNOTATIONS=true
-FEATURE_EXPORT_ZIP=true
+FEATURE_ANNOTATIONS=true          # click-to-comment pins
+FEATURE_EXPORT_ZIP=true           # "ZIP bundle" export entry
+FEATURE_BATCH_COMPARE=false       # the "Batch compare" workspace tab
+FEATURE_LAYOUT_SIDE_BY_SIDE=false # "Side by side" view in the Layout tab
+FEATURE_EXPORT_JSON_CSV=false     # "JSON" and "CSV" export entries
 ```
 
 Truthy values are `true`, `1`, `on`, `yes`, `enabled` (case-insensitive); anything else is

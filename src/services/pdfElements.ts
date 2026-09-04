@@ -1,6 +1,6 @@
 // Renders a PDF page and extracts its selectable elements (text runs + images)
 // with bounding boxes in POINTS (1/72 inch), top-left origin, plus font info for
-// text. Used by the Utilities tab. Inches = points / 72.
+// text. Used by the Inspect PDF tab. Inches = points / 72.
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpecStore } from '../../store/specStore';
 import { exportSpecHtml, exportSpecJson } from '../../services/specExport';
+import { flags } from '../../flags';
 
 // Header-mounted twin of the compare workspace's ExportMenu: always on screen
 // while the spec workspace is active, disabled until a spec run has produced a report.
@@ -42,15 +43,17 @@ export default function SpecExportMenu() {
             HTML report
             <small>Annotated pages + checks · print to PDF</small>
           </button>
-          <button
-            onClick={() => {
-              exportSpecJson(report);
-              setMenuOpen(false);
-            }}
-          >
-            JSON
-            <small>Full results, machine-readable</small>
-          </button>
+          {flags.exportJsonCsv && (
+            <button
+              onClick={() => {
+                exportSpecJson(report);
+                setMenuOpen(false);
+              }}
+            >
+              JSON
+              <small>Full results, machine-readable</small>
+            </button>
+          )}
         </div>
       )}
     </div>

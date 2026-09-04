@@ -8,8 +8,6 @@ const fmtPt = (n: number) => {
   return Number.isInteger(r) ? `${r}` : r.toFixed(1);
 };
 
-type Mode = 'position' | 'font';
-
 // Smallest element containing the point (a text run wins over a big image).
 function elementAt(elements: PageElement[], px: number, py: number): PageElement | null {
   let best: PageElement | null = null;
@@ -108,7 +106,6 @@ export default function MeasureView() {
   const loadingExample = useMeasureStore((s) => s.loadingExample);
 
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<Mode>('position');
   const [hovered, setHovered] = useState<PageElement | null>(null);
   const [selected, setSelected] = useState<PageElement | null>(null);
 
@@ -116,11 +113,11 @@ export default function MeasureView() {
     if (pdfDoc) ensurePage(currentPage);
   }, [pdfDoc, currentPage, ensurePage]);
 
-  // Reset selection when the page or mode changes.
+  // Reset selection when the page changes.
   useEffect(() => {
     setSelected(null);
     setHovered(null);
-  }, [currentPage, pdfDoc, mode]);
+  }, [currentPage, pdfDoc]);
 
   const toPoint = (e: React.MouseEvent) => {
     const rect = wrapRef.current!.getBoundingClientRect();
@@ -131,8 +128,7 @@ export default function MeasureView() {
     };
   };
 
-  // In font mode only text is selectable.
-  const pool = page ? (mode === 'font' ? page.elements.filter((el) => el.kind === 'text') : page.elements) : [];
+  const pool = page ? page.elements : [];
 
   const onMove = (e: React.MouseEvent) => {
     if (!page) return;
@@ -142,16 +138,14 @@ export default function MeasureView() {
   };
   const onClick = () => setSelected(hovered);
 
-  const adj = selected && mode === 'font' && page ? adjacentLine(page.elements, selected) : null;
+  // Line height needs a neighbouring line, and only text has one.
+  const isText = selected != null && selected.kind !== 'image';
+  const adj = isText && page ? adjacentLine(page.elements, selected!) : null;
 
   return (
     <>
       <div className="subtoolbar spec-toolbar">
-        <PdfSlot />
-        <div className="tabs" style={{ marginLeft: 4 }}>
-          <button className={`tab ${mode === 'position' ? 'active' : ''}`} onClick={() => setMode('position')}>📐 Position</button>
-          <button className={`tab ${mode === 'font' ? 'active' : ''}`} onClick={() => setMode('font')}>🔤 Font &amp; paragraph</button>
-        </div>
+        {pdfDoc && <PdfSlot />}
         {pdfDoc && pageCount > 1 && (
           <div className="pagenav" style={{ marginLeft: 4 }}>
             <button className="navbtn" disabled={currentPage <= 0} onClick={() => setPage(currentPage - 1)}>‹</button>
@@ -169,13 +163,17 @@ export default function MeasureView() {
             <div className="icon">📐🔤</div>
             <h2>Measure elements on a PDF</h2>
             <p>
-              Load a PDF, then <strong>hover</strong> over any element to highlight it and <strong>click</strong> to select it.
-              Use <strong>Position</strong> to measure distance from the page edges in inches, or
-              <strong> Font &amp; paragraph</strong> to read the font and line height of any text.
+              Load a PDF, then <strong>hover</strong> any element to highlight it and <strong>click</strong> to
+              select it. One click reports its distance from the page edges in inches, and — for text — its
+              font, weight and line height.
             </p>
-            <p style={{ marginTop: 20 }}>
-              <button className="btn primary" onClick={loadExample} disabled={loadingExample}>
-                {loadingExample ? (<><span className="spinner" style={{ borderTopColor: '#fff', borderColor: 'rgba(255,255,255,0.4)' }} /> Loading…</>) : 'Load example PDF'}
+            <div className="upload-row stacked">
+              <PdfSlot />
+            </div>
+
+            <p className="empty-aside">
+              <button className="btn quiet" onClick={loadExample} disabled={loadingExample}>
+                {loadingExample ? (<><span className="spinner" /> Loading…</>) : 'or load example PDF'}
               </button>
             </p>
           </div>
@@ -194,9 +192,11 @@ export default function MeasureView() {
                   </div>
                 )}
 
-                {/* POSITION mode: guide lines + distance labels */}
-                {mode === 'position' && selected && (
+                {/* Guides, the measured element, and the neighbouring line used
+                    for line height — one selection now answers both questions. */}
+                {selected && (
                   <>
+                    {adj && <div className="mel adjacent" style={pctBox(adj.el, page)} />}
                     <div className="guide h" style={{ left: 0, top: `${(selected.top / page.heightPt) * 100}%`, width: `${(selected.left / page.widthPt) * 100}%` }} />
                     <div className="guide v" style={{ left: `${(selected.left / page.widthPt) * 100}%`, top: 0, height: `${(selected.top / page.heightPt) * 100}%` }} />
                     <div className="guide-label" style={{ left: `${(selected.left / 2 / page.widthPt) * 100}%`, top: `${(selected.top / page.heightPt) * 100}%`, transform: 'translate(-50%, -140%)' }}>← {inches(selected.left)}″</div>
@@ -205,59 +205,69 @@ export default function MeasureView() {
                     <div className="mel selected" style={pctBox(selected, page)} />
                   </>
                 )}
-
-                {/* FONT mode: highlight selected + the adjacent line used for line height */}
-                {mode === 'font' && selected && (
-                  <>
-                    {adj && <div className="mel adjacent" style={pctBox(adj.el, page)} />}
-                    <div className="mel selected" style={pctBox(selected, page)} />
-                  </>
-                )}
               </div>
             </div>
 
             {/* readout panel */}
             <div className="measure-panel card section-pad">
-              {mode === 'position' ? (
-                selected ? (
-                  <>
-                    <div className="mp-head"><span className="mp-ic">{selected.kind === 'image' ? '🖼' : '📝'}</span><div className="mp-title" title={selected.label}>{selected.kind === 'image' ? 'Image' : selected.label}</div></div>
-                    <table className="mp-table"><tbody>
-                      <tr><td>From left</td><td>{inches(selected.left)}″</td></tr>
-                      <tr><td>From top</td><td>{inches(selected.top)}″</td></tr>
-                      <tr className="sep"><td>Width</td><td>{inches(selected.width)}″</td></tr>
-                      <tr><td>Height</td><td>{inches(selected.height)}″</td></tr>
-                      <tr className="sep"><td>From right</td><td>{inches(page.widthPt - (selected.left + selected.width))}″</td></tr>
-                      <tr><td>From bottom</td><td>{inches(page.heightPt - (selected.top + selected.height))}″</td></tr>
-                    </tbody></table>
-                    <p className="mp-note">Distances are from the page edges to the element's top-left corner. Page is {inches(page.widthPt)}″ × {inches(page.heightPt)}″.</p>
-                  </>
-                ) : (
-                  <div className="mp-empty"><b>Hover</b> an element to highlight it, then <b>click</b> to measure its position from the top-left, in inches.{hovered && <div className="mp-hoverhint">Selecting: <span>{hovered.kind === 'image' ? 'Image' : hovered.label}</span></div>}</div>
-                )
-              ) : selected ? (
+              {selected ? (
                 <>
-                  <div className="mp-head"><span className="mp-ic">🔤</span><div className="mp-title" title={selected.label}>{selected.label}</div></div>
+                  <div className="mp-head">
+                    <span className="mp-ic">{selected.kind === 'image' ? '🖼' : '📝'}</span>
+                    <div className="mp-title" title={selected.label}>
+                      {selected.kind === 'image' ? 'Image' : selected.label}
+                    </div>
+                  </div>
+
+                  <div className="mp-sub">Position</div>
                   <table className="mp-table"><tbody>
-                    <tr><td>Font</td><td className="mp-font">{selected.fontLabel ?? 'unknown'}</td></tr>
-                    <tr><td>Font size</td><td>{fmtPt(selected.height)} pt</td></tr>
-                    <tr><td>Weight</td><td>{selected.bold ? 'Bold' : 'Regular'}</td></tr>
-                    <tr><td>Style</td><td>{selected.italic ? 'Italic' : 'Normal'}</td></tr>
-                    <tr className="sep">
-                      <td>Line height</td>
-                      <td>{adj ? `${fmtPt(adj.lineHeight)} pt` : 'single line'}</td>
-                    </tr>
-                    {adj && (
-                      <tr><td>Leading ratio</td><td>{(adj.lineHeight / selected.height).toFixed(2)}×</td></tr>
-                    )}
+                    <tr><td>From left</td><td>{inches(selected.left)}″</td></tr>
+                    <tr><td>From top</td><td>{inches(selected.top)}″</td></tr>
+                    <tr className="sep"><td>Width</td><td>{inches(selected.width)}″</td></tr>
+                    <tr><td>Height</td><td>{inches(selected.height)}″</td></tr>
+                    <tr className="sep"><td>From right</td><td>{inches(page.widthPt - (selected.left + selected.width))}″</td></tr>
+                    <tr><td>From bottom</td><td>{inches(page.heightPt - (selected.top + selected.height))}″</td></tr>
                   </tbody></table>
+
+                  {isText && (
+                    <>
+                      <div className="mp-sub">Font &amp; paragraph</div>
+                      <table className="mp-table"><tbody>
+                        <tr><td>Font</td><td className="mp-font">{selected.fontLabel ?? 'unknown'}</td></tr>
+                        <tr><td>Font size</td><td>{fmtPt(selected.height)} pt</td></tr>
+                        <tr><td>Weight</td><td>{selected.bold ? 'Bold' : 'Regular'}</td></tr>
+                        <tr><td>Style</td><td>{selected.italic ? 'Italic' : 'Normal'}</td></tr>
+                        <tr className="sep">
+                          <td>Line height</td>
+                          <td>{adj ? `${fmtPt(adj.lineHeight)} pt` : 'single line'}</td>
+                        </tr>
+                        {adj && (
+                          <tr><td>Leading ratio</td><td>{(adj.lineHeight / selected.height).toFixed(2)}×</td></tr>
+                        )}
+                      </tbody></table>
+                    </>
+                  )}
+
                   <p className="mp-note">
-                    Font size is in points (1pt = 1/72″).{' '}
-                    {adj ? 'Line height is the baseline-to-baseline distance to the nearest line in this block (shown dashed).' : 'No adjacent line found in this block to measure line height.'}
+                    Distances run from the page edges to the element's top-left corner. Page is{' '}
+                    {inches(page.widthPt)}″ × {inches(page.heightPt)}″.{' '}
+                    {isText
+                      ? adj
+                        ? 'Line height is the baseline-to-baseline distance to the nearest line in this block, shown dashed.'
+                        : 'No adjacent line in this block, so line height cannot be measured.'
+                      : ''}
                   </p>
                 </>
               ) : (
-                <div className="mp-empty"><b>Hover</b> text to highlight it, then <b>click</b> to read its font and line height.{hovered && <div className="mp-hoverhint">Selecting: <span>{hovered.label}</span></div>}</div>
+                <div className="mp-empty">
+                  <b>Hover</b> an element to highlight it, then <b>click</b> to read its position
+                  in inches — and its font and line height when it is text.
+                  {hovered && (
+                    <div className="mp-hoverhint">
+                      Selecting: <span>{hovered.kind === 'image' ? 'Image' : hovered.label}</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

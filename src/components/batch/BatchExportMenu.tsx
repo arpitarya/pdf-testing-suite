@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBatchStore } from '../../store/batchStore';
+import { flags } from '../../flags';
 import {
   exportBatchCsv,
   exportBatchHtml,
@@ -15,7 +16,6 @@ export default function BatchExportMenu() {
   const filesB = useBatchStore((s) => s.filesB);
   const pairs = useBatchStore((s) => s.pairs);
   const results = useBatchStore((s) => s.results);
-  const thresholds = useBatchStore((s) => s.thresholds);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export default function BatchExportMenu() {
               setExporting('html');
               setExportProgress({ done: 0, total: exportPairs.length });
               try {
-                await exportBatchHtml(exportPairs, thresholds, (done, total) =>
+                await exportBatchHtml(exportPairs, (done: number, total: number) =>
                   setExportProgress({ done, total }),
                 );
               } finally {
@@ -97,33 +97,39 @@ export default function BatchExportMenu() {
             HTML report
             <small>Overview + every pair's annotated pages</small>
           </button>
-          <button
-            onClick={() => {
-              exportBatchMarkdown(exportPairs, thresholds);
-              setMenuOpen(false);
-            }}
-          >
-            Markdown fix-list
-            <small>What to change in the templates · for an AI agent</small>
-          </button>
-          <button
-            onClick={() => {
-              exportBatchJson(exportPairs, thresholds);
-              setMenuOpen(false);
-            }}
-          >
-            JSON
-            <small>All pairs &amp; pages, machine-readable</small>
-          </button>
-          <button
-            onClick={() => {
-              exportBatchCsv(exportPairs, thresholds);
-              setMenuOpen(false);
-            }}
-          >
-            CSV
-            <small>One row per pair × page</small>
-          </button>
+          {flags.exportMarkdown && (
+            <button
+              onClick={() => {
+                exportBatchMarkdown(exportPairs);
+                setMenuOpen(false);
+              }}
+            >
+              Markdown fix-list
+              <small>What to change in the templates · for an AI agent</small>
+            </button>
+          )}
+          {flags.exportJsonCsv && (
+            <>
+              <button
+                onClick={() => {
+                  exportBatchJson(exportPairs);
+                  setMenuOpen(false);
+                }}
+              >
+                JSON
+                <small>All pairs &amp; pages, machine-readable</small>
+              </button>
+              <button
+                onClick={() => {
+                  exportBatchCsv(exportPairs);
+                  setMenuOpen(false);
+                }}
+              >
+                CSV
+                <small>One row per pair × page</small>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

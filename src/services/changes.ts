@@ -1,4 +1,4 @@
-// Shared change-derivation logic used by both the Content view and the HTML export,
+// Shared change-derivation logic used by both the Side by side view and the HTML export,
 // so the on-screen highlights and the exported report stay in sync.
 
 import type { PageComparison, PageSummary, StyleDiff, TextItem } from '../types/compare';
@@ -38,8 +38,14 @@ import type { PageComparison, PageSummary, StyleDiff, TextItem } from '../types/
 export type ChangeType = 'removed' | 'added' | 'moved' | 'styled';
 
 export interface Change {
-  id: number;
+  id: number;         // unique per change; the React key and the pairing handle
   group: number;      // paired removed+added (an in-place replacement) share a group
+  /**
+   * The number shown to the reader. Both halves of a paired replacement carry
+   * the same one, so the old value and the new value are marked "2" and "2" on
+   * their respective pages rather than "2" and "3".
+   */
+  label: number;
   type: ChangeType;
   text: string;
   a: TextItem | null; // box on side A
@@ -85,7 +91,7 @@ export function region(box: TextItem, w: number, h: number): string {
 
 export function buildChanges(pc: PageComparison, movedThresholdIn: number): Change[] {
   const thresholdPx = movedThresholdIn * pc.pxPerInch;
-  const raw: Omit<Change, 'id' | 'group'>[] = [];
+  const raw: Omit<Change, 'id' | 'group' | 'label'>[] = [];
   for (const it of pc.match.onlyA) raw.push({ type: 'removed', text: it.str, a: it, b: null });
   for (const it of pc.match.onlyB) raw.push({ type: 'added', text: it.str, a: null, b: it });
   // Same words, different type, recovered from differing run segmentation.
@@ -114,7 +120,7 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
     const b2 = (r2.a ?? r2.b)!;
     return b1.y - b2.y || b1.x - b2.x;
   });
-  const changes: Change[] = raw.map((r, i) => ({ ...r, id: i + 1, group: i + 1 }));
+  const changes: Change[] = raw.map((r, i) => ({ ...r, id: i + 1, group: i + 1, label: i + 1 }));
 
   // Pair each removed run with its nearest added run at the same spot (an in-place
   // replacement) so they share a highlight group — hovering one lights up both.
@@ -139,6 +145,20 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
       best.group = rem.group;
     }
   }
+
+  // Number the groups, not the individual changes. `changes` is already in
+  // reading order, so the first half of a replacement claims the number and its
+  // partner inherits it.
+  const labelOfGroup = new Map<number, number>();
+  for (const c of changes) {
+    let n = labelOfGroup.get(c.group);
+    if (n == null) {
+      n = labelOfGroup.size + 1;
+      labelOfGroup.set(c.group, n);
+    }
+    c.label = n;
+  }
+
   return changes;
 }
 
@@ -196,7 +216,7 @@ export function diffHotspots(onlyA: TextItem[], onlyB: TextItem[]): DiffHotspot[
 export type HeatBucket = 'layout' | 'text' | 'style';
 
 export const HEAT_COLOR: Record<HeatBucket, string> = {
-  layout: '#7c3aed', // violet — matches the 'moved' color used in the Content tab
+  layout: '#7c3aed', // violet — matches the 'moved' color used in Side by side
   text: '#d97706',   // amber — content added/removed, distinct from the base pixelmatch red
   style: '#0891b2',  // cyan — same words, different type
 };

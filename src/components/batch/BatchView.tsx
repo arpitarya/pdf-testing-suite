@@ -75,8 +75,6 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
   const results = useBatchStore((s) => s.results);
   const running = useBatchStore((s) => s.running);
   const progress = useBatchStore((s) => s.progress);
-  const thresholds = useBatchStore((s) => s.thresholds);
-  const setThreshold = useBatchStore((s) => s.setThreshold);
   const addPair = useBatchStore((s) => s.addPair);
   const autoPairByOrder = useBatchStore((s) => s.autoPairByOrder);
   const run = useBatchStore((s) => s.run);
@@ -106,12 +104,6 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
             `Run ${validPairs.length || ''} comparison${validPairs.length === 1 ? '' : 's'}`.trim()
           )}
         </button>
-        <div className="thresh-group">
-          <span style={{ fontSize: 13, color: 'var(--muted)' }}>PASS if</span>
-          <label className="thresh">content ≥ <input type="number" value={thresholds.contentPct} onChange={(e) => setThreshold('contentPct', Number(e.target.value))} />%</label>
-          <label className="thresh">pixels ≤ <input type="number" value={thresholds.pixelPct} onChange={(e) => setThreshold('pixelPct', Number(e.target.value))} />%</label>
-          <label className="thresh">offset ≤ <input type="number" step={0.01} value={thresholds.offsetIn} onChange={(e) => setThreshold('offsetIn', Number(e.target.value))} />in</label>
-        </div>
         <div className="spacer" />
         {hasFiles && <button className="btn sm" onClick={clearAll}>Clear all</button>}
       </div>
@@ -185,7 +177,7 @@ export default function BatchView({ onOpenCompare }: { onOpenCompare: () => void
                             <td colSpan={6} className="muted">not run yet</td></tr>
                         );
                       }
-                      const pass = pairVerdict(r.summary, thresholds);
+                      const pass = pairVerdict(r.summary);
                       const w = worst(r.summary);
                       return (
                         <tr key={p.id}>

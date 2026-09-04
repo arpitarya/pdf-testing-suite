@@ -27,17 +27,22 @@ export function exportSpecJson(report: SpecReport) {
       checksPassed: report.totalPass,
       checksFailed: report.totalFail,
     },
-    pages: report.pages.map((p) => ({
-      page: p.page,
-      specPage: p.specPage,
-      elements: p.elements.map((e) => ({
-        id: e.id,
-        type: e.type,
-        label: e.label,
-        status: e.status,
-        checks: e.checks,
+    // Failures only: an element within tolerance is not something to act on.
+    failedPages: report.pages
+      .filter((p) => p.failCount > 0)
+      .map((p) => ({
+        page: p.page,
+        specPage: p.specPage,
+        failedElements: p.elements
+          .filter((e) => e.status !== 'pass')
+          .map((e) => ({
+            id: e.id,
+            type: e.type,
+            label: e.label,
+            status: e.status,
+            failedChecks: e.checks.filter((c) => !c.pass),
+          })),
       })),
-    })),
   };
   download(`spec-check-${stamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
 }
@@ -50,8 +55,12 @@ function boxStyle(box: Box, w: number, h: number, color: string, dashed: boolean
 }
 
 function elementRows(el: ElementResult): string {
-  const badge = el.status === 'pass' ? '<span class="b pass">PASS</span>' : el.status === 'fail' ? '<span class="b fail">FAIL</span>' : '<span class="b na">NOT FOUND</span>';
+  // Passing elements are omitted from the report, and within a failing element
+  // only the checks that actually failed are listed.
+  if (el.status === 'pass') return '';
+  const badge = el.status === 'fail' ? '<span class="b fail">FAIL</span>' : '<span class="b na">NOT FOUND</span>';
   const checks = el.checks
+    .filter((c) => !c.pass)
     .map(
       (c) =>
         `<tr class="${c.pass ? 'ok' : 'no'}"><td></td><td>${esc(c.name)}</td><td>${esc(c.expected)}</td><td>${esc(c.actual)}</td><td>${c.delta ? esc(c.delta) : ''}</td><td>${c.pass ? '✓' : '✗'}</td></tr>`,
@@ -62,10 +71,12 @@ function elementRows(el: ElementResult): string {
 
 export function exportSpecHtml(report: SpecReport) {
   const pass = report.totalFail === 0;
-  const pagesHtml = report.pages
+  const failedPages = report.pages.filter((p) => p.failCount > 0);
+  const pagesHtml = failedPages
     .map((p) => {
       const overlays = p.dataUrl
         ? p.elements
+            .filter((e) => e.status !== 'pass')
             .map((e) => {
               const parts: string[] = [];
               if (e.expectedBox) parts.push(`<div class="ov" style="${boxStyle(e.expectedBox, p.pageWidthPt, p.pageHeightPt, '#6366f1', true)}"></div>`);
@@ -80,7 +91,7 @@ export function exportSpecHtml(report: SpecReport) {
           p.specPage !== p.page
             ? ` <em style="font-size:13px;font-weight:500;color:#b45309">(spec page ${p.specPage} was checked against this page)</em>`
             : ''
-        } <small>${p.failCount === 0 ? '✓ all checks pass' : `${p.failCount} check(s) failed`}</small></h2>
+        } <small>${p.failCount} check(s) failed</small></h2>
         <div class="cols">
           ${img}
           <table class="res">
@@ -90,7 +101,7 @@ export function exportSpecHtml(report: SpecReport) {
         </div>
       </section>`;
     })
-    .join('');
+    .join('') || '<p class="allclear">No element fell outside tolerance.</p>';
 
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <title>Spec Check Report — ${esc(report.title)}</title>
@@ -115,6 +126,7 @@ export function exportSpecHtml(report: SpecReport) {
   tr.el small{color:#94a3b8}
   tr.no td{color:#b91c1c}
   .b{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .allclear{color:#15803d;font-weight:600;font-size:15px}
   .b.pass{background:#dcfce7;color:#166534}.b.fail{background:#fee2e2;color:#991b1b}.b.na{background:#fef3c7;color:#92400e}
   .muted{color:#94a3b8}
   .legend{font-size:12px;color:#64748b;margin-bottom:20px}
