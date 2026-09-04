@@ -752,6 +752,15 @@ table.report td.res-fail { color: var(--red); font-weight: 700; }
   flex-shrink: 0;
 }
 .chg-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; }
+/* Three tabs and a close button inside 440px: the deck's default tab size wraps
+   here, so this row gets its own tighter setting. */
+.chg-drawer-head .tabs { gap: 2px; padding: 3px; min-width: 0; }
+.chg-drawer-head .tab {
+  font-size: 12px;
+  padding: 5px 8px;
+  gap: 4px;
+  white-space: nowrap;
+}
 
 /* The list is height-capped in the page layout; in the drawer it owns the scroll. */
 .chg-drawer .chg-list { max-height: none; overflow: visible; }
