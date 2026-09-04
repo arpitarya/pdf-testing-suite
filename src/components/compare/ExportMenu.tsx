@@ -3,6 +3,7 @@ import { useCompareStore } from '../../store/compareStore';
 import { exportCsv, exportHtmlReport, exportJson } from '../../services/exportReport';
 import { exportMarkdownReport } from '../../services/exportMarkdown';
 import { useAnnotationStore } from '../../store/annotationStore';
+import { ignoredList, useIgnoreStore } from '../../store/ignoreStore';
 import { flags } from '../../flags';
 
 // Lives in the app header, so it is on screen in every compare mode — including
@@ -15,6 +16,8 @@ export default function ExportMenu() {
   const sideA = useCompareStore((s) => s.sideA);
   const sideB = useCompareStore((s) => s.sideB);
   const annotations = useAnnotationStore((s) => s.annotations);
+  const ignoredMap = useIgnoreStore((s) => s.ignored);
+  const ignored = ignoredList(ignoredMap);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
@@ -69,7 +72,7 @@ export default function ExportMenu() {
               setMenuOpen(false);
               setExportingHtml(true);
               try {
-                await exportHtmlReport(summary, meta, pageCache);
+                await exportHtmlReport(summary, meta, pageCache, ignored);
               } finally {
                 setExportingHtml(false);
               }
@@ -81,7 +84,7 @@ export default function ExportMenu() {
           {flags.exportMarkdown && (
             <button
               onClick={() => {
-                exportMarkdownReport(summary, meta, pageCache);
+                exportMarkdownReport(summary, meta, pageCache, ignored);
                 setMenuOpen(false);
               }}
             >
@@ -126,6 +129,7 @@ export default function ExportMenu() {
                       meta,
                       pageCache,
                       annotations,
+                      ignored,
                       docA: sideA?.doc ?? null,
                       docB: sideB?.doc ?? null,
                     },

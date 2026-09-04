@@ -17,12 +17,15 @@ import {
   type ExportMeta,
 } from './exportReport';
 import { bySidePage, type Annotation, type NumberedAnnotation } from '../store/annotationStore';
+import type { IgnoredChange } from '../store/ignoreStore';
 
 export interface ZipSource {
   summary: CompareSummary;
   meta: ExportMeta;
   pageCache: Record<number, PageComparison>;
   annotations: Annotation[];
+  /** Differences a reviewer marked expected; recorded in the archived report. */
+  ignored?: IgnoredChange[];
   /** Live pdf.js documents, used to recover the original bytes. */
   docA: PDFDocumentProxy | null;
   docB: PDFDocumentProxy | null;
@@ -96,7 +99,7 @@ async function annotatePdf(
 }
 
 export async function exportZipBundle(src: ZipSource, onProgress?: ZipProgress) {
-  const { summary, meta, pageCache, annotations } = src;
+  const { summary, meta, pageCache, annotations, ignored = [] } = src;
   const zip = new JSZip();
   const reports = zip.folder('reports')!;
   const pdfs = zip.folder('annotated-pdfs')!;
@@ -106,7 +109,7 @@ export async function exportZipBundle(src: ZipSource, onProgress?: ZipProgress) 
   const tick = (step: string) => onProgress?.(step, ++done, steps);
 
   onProgress?.('Building HTML report', 0, steps);
-  reports.file('comparison-report.html', await buildHtmlReport(summary, meta, pageCache));
+  reports.file('comparison-report.html', await buildHtmlReport(summary, meta, pageCache, ignored));
   tick('HTML report');
 
   const goldenStem = safeStem(meta.nameA);

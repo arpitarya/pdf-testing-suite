@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCompareStore } from '../../store/compareStore';
 import type { CompareSide, RenderedPageImage } from '../../types/compare';
-import { buildChanges, fmtInch, isOnSide, TYPE_LABEL, type Change, type ChangeType } from '../../services/changes';
+import {
+  buildChanges,
+  changeSummary,
+  fmtInch,
+  isOnSide,
+  TYPE_LABEL,
+  type Change,
+  type ChangeType,
+} from '../../services/changes';
+import { ignoredList, ignoredRefsFor, useIgnoreStore } from '../../store/ignoreStore';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
 
@@ -12,7 +21,7 @@ const LEGEND_HELP =
 
 const normalize = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
-type DrawerTab = 'changes' | 'diff';
+type DrawerTab = 'changes' | 'diff' | 'ignored';
 
 // Fit height for a page in this view. Two pages sit side by side, so this is
 // shorter than the single-stage Overlapping view uses.
@@ -87,11 +96,18 @@ export default function ContentCompareView() {
   const computing = useCompareStore((s) => s.computing);
   const movedThreshold = useCompareStore((s) => s.offsetThresholdIn);
   const contentZoom = useCompareStore((s) => s.contentZoom);
+  const ignoredMap = useIgnoreStore((s) => s.ignored);
+  const ignoreChange = useIgnoreStore((s) => s.ignore);
+  const restoreChange = useIgnoreStore((s) => s.restore);
   const setContentZoom = useCompareStore((s) => s.setContentZoom);
 
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [stageW, setStageW] = useState(0);
+  /** The change whose ⋯ menu is open, which step it is on, and the reason typed so far. */
+  const [menuFor, setMenuFor] = useState<number | null>(null);
+  const [menuStep, setMenuStep] = useState<'menu' | 'reason'>('menu');
+  const [reason, setReason] = useState('');
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('changes');
   const [enabled, setEnabled] = useState<Record<ChangeType, boolean>>({
     removed: true,
@@ -100,9 +116,23 @@ export default function ContentCompareView() {
     moved: true,
   });
 
-  const changes = useMemo(
+  const ignoredKeys = useMemo(() => ignoredRefsFor(ignoredMap, currentPage), [ignoredMap, currentPage]);
+  const ignoredHere = useMemo(
+    () => ignoredList(ignoredMap).filter((e) => e.page === currentPage).length,
+    [ignoredMap, currentPage],
+  );
+  const allIgnored = useMemo(() => ignoredList(ignoredMap), [ignoredMap]);
+
+  // Everything downstream — the page boxes, the counts, the list, the filters —
+  // works from the surviving changes, so one filter here removes an ignored
+  // difference from the whole view.
+  const allChanges = useMemo(
     () => (pc ? buildChanges(pc, movedThreshold) : []),
     [pc, movedThreshold],
+  );
+  const changes = useMemo(
+    () => allChanges.filter((c) => !ignoredKeys.has(c.key)),
+    [allChanges, ignoredKeys],
   );
 
   const counts = useMemo(() => {
@@ -134,6 +164,18 @@ export default function ContentCompareView() {
     setStageW(el.clientWidth);
   }, []);
   useEffect(() => () => roRef.current?.disconnect(), []);
+
+  useEffect(() => {
+    if (menuFor == null) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.chg-more')) setMenuFor(null);
+    };
+    const t = setTimeout(() => document.addEventListener('mousedown', onDown), 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [menuFor]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -229,6 +271,7 @@ export default function ContentCompareView() {
               <span />
             </i>
             View changes{changes.length > 0 ? ` · ${changes.length}` : ''}
+            {ignoredHere > 0 && <span className="ign-badge">{ignoredHere} ignored</span>}
           </button>
         </div>
         <div className="pages-row">
@@ -289,6 +332,12 @@ export default function ContentCompareView() {
               >
                 Verbiage differences
               </button>
+              <button
+                className={`tab ${drawerTab === 'ignored' ? 'active' : ''}`}
+                onClick={() => setDrawerTab('ignored')}
+              >
+                Ignored{allIgnored.length > 0 ? ` · ${allIgnored.length}` : ''}
+              </button>
             </div>
             <span className="spacer" />
             <button className="btn sm" onClick={() => setDrawerOpen(false)} title="Close (Esc)">
@@ -318,6 +367,69 @@ export default function ContentCompareView() {
                         <span className={`chg-num chg-${c.type}`}>{c.label}</span>
                         <span className={`chg-chip chg-${c.type}`}>{TYPE_LABEL[c.type]}</span>
                         <span className="chg-text" title={c.text}>{c.text}</span>
+
+                        <span className="chg-more">
+                          <button
+                            className="chg-more-btn"
+                            title="Mark this difference as expected"
+                            aria-label="Difference options"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReason('');
+                              setMenuStep('menu');
+                              setMenuFor(menuFor === c.id ? null : c.id);
+                            }}
+                          >
+                            ⋯
+                          </button>
+
+                          {menuFor === c.id && menuStep === 'menu' && (
+                            <div className="chg-menu compact" onClick={(e) => e.stopPropagation()}>
+                              <button className="chg-menu-item" onClick={() => setMenuStep('reason')}>
+                                Ignore this difference
+                                <small>Expected — remove it from the comparison</small>
+                              </button>
+                            </div>
+                          )}
+
+                          {menuFor === c.id && menuStep === 'reason' && (
+                            <div className="chg-menu" onClick={(e) => e.stopPropagation()}>
+                              <div className="chg-menu-head">Why is this expected?</div>
+                              <textarea
+                                autoFocus
+                                value={reason}
+                                placeholder="Optional — recorded in the report"
+                                onChange={(e) => setReason(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') setMenuFor(null);
+                                }}
+                              />
+                              <div className="chg-menu-foot">
+                                <button className="btn sm" onClick={() => setMenuStep('menu')}>
+                                  Back
+                                </button>
+                                <span className="spacer" />
+                                <button
+                                  className="btn sm primary"
+                                  onClick={() => {
+                                    const members = allChanges.filter((m) => m.group === c.group);
+                                    ignoreChange({
+                                      page: currentPage,
+                                      key: c.key,
+                                      label: c.label,
+                                      summary: changeSummary(members),
+                                      reason: reason.trim(),
+                                    });
+                                    setMenuFor(null);
+                                    setReason('');
+                                  }}
+                                >
+                                  Ignore
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </span>
                         {/* Only what changed — an added or removed run has no
                             second line, since its coordinates say nothing the
                             highlighted box on the page does not already show. */}
@@ -327,6 +439,36 @@ export default function ContentCompareView() {
                           <span className="chg-pos">moved {fmtInch(c.offset, pc.pxPerInch)}</span>
                         ) : null}
                       </div>
+                  ))}
+                </div>
+              )
+            ) : drawerTab === 'ignored' ? (
+              allIgnored.length === 0 ? (
+                <div className="chg-empty muted-empty">
+                  Nothing ignored. Use the ⋯ menu on a change to mark it as expected.
+                </div>
+              ) : (
+                <div className="ign-list">
+                  {allIgnored.map((e) => (
+                    <div key={e.ref} className="ign-item">
+                      <div className="ign-head">
+                        <span className="ign-page">Page {e.page + 1}</span>
+                        <span className="spacer" />
+                        <button
+                          className="btn sm"
+                          onClick={() => restoreChange(e.ref)}
+                          title="Put this difference back into the comparison"
+                        >
+                          Undo
+                        </button>
+                      </div>
+                      <div className="ign-summary">{e.summary}</div>
+                      {e.reason ? (
+                        <div className="ign-reason">{e.reason}</div>
+                      ) : (
+                        <div className="ign-reason none">No reason given</div>
+                      )}
+                    </div>
                   ))}
                 </div>
               )

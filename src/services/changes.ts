@@ -46,6 +46,16 @@ export interface Change {
    * their respective pages rather than "2" and "3".
    */
   label: number;
+  /**
+   * A signature for the difference this change belongs to, derived from what
+   * changed rather than from its position in the list.
+   *
+   * `id`, `group` and `label` are all indices assigned per run, so they cannot
+   * carry a decision across a recompute. This can: both halves of a pair share
+   * it, and it survives re-running the comparison, which is what lets a
+   * reviewer mark a difference as expected and have it stay marked.
+   */
+  key: string;
   type: ChangeType;
   text: string;
   a: TextItem | null; // box on side A
@@ -91,7 +101,7 @@ export function region(box: TextItem, w: number, h: number): string {
 
 export function buildChanges(pc: PageComparison, movedThresholdIn: number): Change[] {
   const thresholdPx = movedThresholdIn * pc.pxPerInch;
-  const raw: Omit<Change, 'id' | 'group' | 'label'>[] = [];
+  const raw: Omit<Change, 'id' | 'group' | 'label' | 'key'>[] = [];
   for (const it of pc.match.onlyA) raw.push({ type: 'removed', text: it.str, a: it, b: null });
   for (const it of pc.match.onlyB) raw.push({ type: 'added', text: it.str, a: null, b: it });
   // Same words, different type, recovered from differing run segmentation.
@@ -120,7 +130,7 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
     const b2 = (r2.a ?? r2.b)!;
     return b1.y - b2.y || b1.x - b2.x;
   });
-  const changes: Change[] = raw.map((r, i) => ({ ...r, id: i + 1, group: i + 1, label: i + 1 }));
+  const changes: Change[] = raw.map((r, i) => ({ ...r, id: i + 1, group: i + 1, label: i + 1, key: '' }));
 
   // Pair each removed run with its nearest added run at the same spot (an in-place
   // replacement) so they share a highlight group — hovering one lights up both.
@@ -159,7 +169,40 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
     c.label = n;
   }
 
+  // Signature per group: what changed, plus a coarse vertical band to separate
+  // two identical edits on the same page. Rounded so a sub-pixel difference in
+  // rendering does not invalidate a reviewer's decision.
+  const membersOf = new Map<number, Change[]>();
+  for (const c of changes) {
+    const list = membersOf.get(c.group) ?? [];
+    list.push(c);
+    membersOf.set(c.group, list);
+  }
+  for (const members of membersOf.values()) {
+    const sig = members
+      .map((m) => `${m.type}:${m.text.replace(/\s+/g, ' ').trim().toLowerCase()}`)
+      .sort()
+      .join('|');
+    const box = (members[0].a ?? members[0].b)!;
+    const key = `${sig}@${Math.round(box.y / 8)}`;
+    for (const m of members) m.key = key;
+  }
+
   return changes;
+}
+
+/** How an ignored difference is addressed: stable across recomputes. */
+export function changeRef(page: number, key: string): string {
+  return `${page}::${key}`;
+}
+
+/** A one-line description of a difference, for the ignore list and the report. */
+export function changeSummary(members: Change[]): string {
+  const part = (c: Change) => `${TYPE_LABEL[c.type]} "${c.text}"`;
+  const removed = members.find((m) => m.type === 'removed');
+  const added = members.find((m) => m.type === 'added');
+  if (removed && added) return `${part(removed)} → ${part(added)}`;
+  return members.map(part).join(' · ');
 }
 
 /** Same "does this page differ?" test, but from a rolled-up PageSummary row. */

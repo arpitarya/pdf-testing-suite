@@ -15,7 +15,8 @@
 //     one, and so a model can report which findings it addressed.
 
 import type { CompareSummary, PageComparison } from '../types/compare';
-import { buildChanges, type Change } from './changes';
+import { buildChanges, changeRef, type Change } from './changes';
+import type { IgnoredChange } from '../store/ignoreStore';
 import { download, judgePage, MOVED_OFFSET_IN, stamp, type ExportMeta } from './exportReport';
 
 /** Severity drives the order a model should work through the findings. */
@@ -56,8 +57,11 @@ const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 function buildFindings(
   summary: CompareSummary,
   pageCache: Record<number, PageComparison>,
+  ignored: IgnoredChange[] = [],
 ): Finding[] {
   const findings: Finding[] = [];
+  // A difference a reviewer marked expected is not something to fix.
+  const ignoredKeys = new Set(ignored.map((e) => changeRef(e.page, e.key)));
 
   for (const page of summary.pages) {
     const pageNo = page.pageIndex + 1;
@@ -89,7 +93,9 @@ function buildFindings(
     }
 
     const ppi = pc.pxPerInch;
-    const changes = buildChanges(pc, MOVED_OFFSET_IN);
+    const changes = buildChanges(pc, MOVED_OFFSET_IN).filter(
+      (c) => !ignoredKeys.has(changeRef(page.pageIndex, c.key)),
+    );
     const counters = { text: 0, style: 0, layout: 0 };
     const movedOnPage: Change[] = [];
 
@@ -379,8 +385,9 @@ export function buildMarkdownReport(
   summary: CompareSummary,
   meta: ExportMeta,
   pageCache: Record<number, PageComparison>,
+  ignored: IgnoredChange[] = [],
 ): string {
-  const findings = buildFindings(summary, pageCache);
+  const findings = buildFindings(summary, pageCache, ignored);
   const passCount = summary.pages.filter((p) => judgePage(p)).length;
   const overall = passCount === summary.pages.length;
 
@@ -481,10 +488,11 @@ export function exportMarkdownReport(
   summary: CompareSummary,
   meta: ExportMeta,
   pageCache: Record<number, PageComparison>,
+  ignored: IgnoredChange[] = [],
 ) {
   download(
     `pdf-remediation-${stamp()}.md`,
-    buildMarkdownReport(summary, meta, pageCache),
+    buildMarkdownReport(summary, meta, pageCache, ignored),
     'text/markdown',
   );
 }

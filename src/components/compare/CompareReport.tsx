@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCompareStore } from '../../store/compareStore';
 import { buildHtmlReport, download, stamp, type ExportMeta } from '../../services/exportReport';
+import { ignoredList, useIgnoreStore } from '../../store/ignoreStore';
 
 /**
  * The Report tab: the HTML report itself, rendered in place.
@@ -18,6 +19,7 @@ export default function CompareReport() {
   const sideA = useCompareStore((s) => s.sideA);
   const sideB = useCompareStore((s) => s.sideB);
   const importedHtml = useCompareStore((s) => s.importedReportHtml);
+  const ignoredMap = useIgnoreStore((s) => s.ignored);
 
   const [html, setHtml] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -34,7 +36,7 @@ export default function CompareReport() {
   // A fresh comparison invalidates the rendered report.
   useEffect(() => {
     setHtml(null);
-  }, [summary, pageCache]);
+  }, [summary, pageCache, ignoredMap]);
 
   // Built once per comparison — it rescales every page image, which is slow
   // enough to be worth not repeating on every render. An imported bundle brings
@@ -43,7 +45,7 @@ export default function CompareReport() {
     if (importedHtml || !summary || html !== null) return;
     let cancelled = false;
     setBuilding(true);
-    buildHtmlReport(summary, meta, pageCache)
+    buildHtmlReport(summary, meta, pageCache, ignoredList(ignoredMap))
       .then((out) => {
         if (!cancelled) setHtml(out);
       })
@@ -56,7 +58,7 @@ export default function CompareReport() {
     // meta carries a fresh timestamp each render; the report depends on the
     // comparison, not on when this effect happened to run.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary, pageCache, html, importedHtml]);
+  }, [summary, pageCache, html, importedHtml, ignoredMap]);
 
   const printHtml = () => {
     const win = frameRef.current?.contentWindow;

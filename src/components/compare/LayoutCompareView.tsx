@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
+import { ignoredRefsFor, useIgnoreStore } from '../../store/ignoreStore';
 import type { LayoutViewMode, MatchedPair, RenderedPageImage, TextItem } from '../../types/compare';
 import { useCompareStore } from '../../store/compareStore';
 import {
@@ -128,7 +129,14 @@ export default function LayoutCompareView() {
   // Heatmap classification: edited runs become text regions, restyled runs style
   // regions, and merely-shifted runs layout regions — reused for both the coloured
   // overlay and the hover tooltip.
-  const changes = useMemo(() => (pc ? buildChanges(pc, offsetThresholdIn) : []), [pc, offsetThresholdIn]);
+  // A difference marked expected is gone from here too, so the heat map and the
+  // shift measurements agree with what Side by side shows.
+  const ignoredMap = useIgnoreStore((s) => s.ignored);
+  const ignoredKeys = useMemo(() => ignoredRefsFor(ignoredMap, currentPage), [ignoredMap, currentPage]);
+  const changes = useMemo(
+    () => (pc ? buildChanges(pc, offsetThresholdIn).filter((c) => !ignoredKeys.has(c.key)) : []),
+    [pc, offsetThresholdIn, ignoredKeys],
+  );
   const heatBoxes = useMemo(() => heatmapBoxes(changes), [changes]);
   const movedChanges = useMemo(() => changes.filter((c) => c.type === 'moved'), [changes]);
   const styledChanges = useMemo(() => changes.filter((c) => c.type === 'styled'), [changes]);
