@@ -1,0 +1,42 @@
+---
+type: Queue
+description: "The single live work queue, three lanes, plus the Blocked-on-Arpit and Siddharth inbox. The list only — its rules live in the record below."
+governed_by: SR-WORK-OPEN-QUEUE
+governed_by_path: records/0051_WORK-open-queue.md
+---
+
+# OPEN-WORK — what is still open
+
+**This file is the LIST, plus the legend below.** Everything else — what the
+queue is, an item's lifecycle, the shape of a row, ball precedence, ordering,
+how the inbox works, and what every session owes — is stated once in
+**[SR-WORK-OPEN-QUEUE](../records/0051_WORK-open-queue.md)** and is not repeated
+here. Read that record before changing anything below it.
+
+**A ball on every row, always one:** 🔴 blocked on Arpit and Siddharth, directly or through another item · 🟣 gated on a named date, directly or through another item · 🟡 waiting on another item · 🟢 no blockers.
+**Optional, after the ball:** 🧨 broken or getting worse · 🔺 do first (Arpit and Siddharth only). Full legend: [SR-WORK-OPEN-QUEUE](../records/0051_WORK-open-queue.md) rules 20–34.
+
+---
+
+## Blocked on Arpit and Siddharth
+
+| what they decide | filed | age |
+|---|---|---|
+
+*Empty since 2026-10-13 — nothing waits on a ruling; the next gate is the first item filed.*
+
+---
+
+## Open items
+
+### build
+
+### testing
+
+### record update
+
+- 🟢 **W-01** · `agent` — claim every product component with a record; W-01 owns them all until then. **Opus.** [detail](open/W-01-claim-components.md)
+
+### research
+
+---
