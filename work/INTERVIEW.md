@@ -30,10 +30,17 @@ a Python CLI (`cli-py/`) — predates it and has no records yet; W-01 owns every
 product path until records claim them. **Ground it before you edit it** —
 `git log`, the queue, the code.
 
+*2026-10-14.* [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) maps the product
+from the code — read it before W-01 to see where component boundaries fall.
+Its **Watch** notes name known defects (app vs CLI verdict rules differ; Node
+font rendering; scan races) that are **not yet backlog rows**.
+
 ## 2 · In flight, and the immediate next step
 
-Nothing in flight. Next: Siddharth or Arpit installs `scripts/sr-guard.sh` as the
-`commit-msg` hook; then W-01 (claim components with records).
+Nothing in flight. `docs/ARCHITECTURE.md` and its SVGs are committed on branch
+`architecture-diagrams-records`, in a PR to `main` stacked on PR #2 (merge #2
+first). Next: Siddharth or Arpit reviews and merges both; installs
+`scripts/sr-guard.sh` as the `commit-msg` hook; then W-01.
 
 ## 3 · Standing constraints
 

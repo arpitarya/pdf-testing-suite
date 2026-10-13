@@ -38,6 +38,7 @@ decision 13.
 | the spec for anything | [the register](records/README.md) |
 | a closed fork and its reopen-trigger | [`work/compare/`](work/compare/README.md) |
 | a word you don't recognise | [`docs/GLOSSARY.md`](docs/GLOSSARY.md) |
+| how the product is built — app, tabs, CLI | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | why a command fails on *this* machine | [`work/MACHINE.md`](work/MACHINE.md) |
 | the stages a feature moves through | [SR-WORK-LIFECYCLE](records/0053_WORK-lifecycle.md) |
 | what a session owes before it ends, and how long an answer may be | [SR-WORK-SESSION](records/0054_WORK-session.md) |
@@ -105,7 +106,7 @@ running.
 ```
 work/        THE SHARED MEMORY between sessions — start at work/README.md
 records/     THE STANDING RECORDS — the register, the template, the laws, the WORK records
-docs/        WHAT THE PROJECT IS — the glossary
+docs/        WHAT THE PROJECT IS — the glossary, the architecture diagrams
 archive/     THE ONE ARCHIVE — everything retired, mirroring the live tree
 scripts/     the commit guard and the inbox check
 .claude/     hooks and their wiring

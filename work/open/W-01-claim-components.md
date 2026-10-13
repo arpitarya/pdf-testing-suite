@@ -25,7 +25,7 @@ Record (`0101`+) that states the decisions behind that component.
 | 1 · app | records for `src/` (and `index.html`, `vite.config.ts`, `tsconfig*`, `package*.json`, `flag.env`), split where decisions differ (e.g. feature flags, annotations, ignore-difference) | ⏳ |
 | 2 · CLIs | records for `cli/` and `cli-py/` | ⏳ |
 | 3 · static | records for `public/` and `tools/` | ⏳ |
-| 4 · docs | `README.md`, `spec-standard.md`, `comparison.md`, `presentation-script.md` owned by the record they describe, or a docs record | ⏳ |
+| 4 · docs | `README.md`, `spec-standard.md`, `comparison.md`, `presentation-script.md`, `docs/ARCHITECTURE.md`, `docs/architecture/` owned by the record they describe, or a docs record | ⏳ |
 | 5 · strays | `.tmp-old-block.txt`, `.gitignore`, `.claude/launch.json` owned or removed (a removal is Siddharth's or Arpit's call) | ⏳ |
 | 6 · table | no `W-01` left in the Ownership table; each record's `owns:` matches it | ⏳ |
 
