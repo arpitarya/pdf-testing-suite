@@ -38,7 +38,7 @@ font rendering; scan races) that are **not yet backlog rows**.
 ## 2 · In flight, and the immediate next step
 
 Nothing in flight. `docs/ARCHITECTURE.md` and its SVGs are committed on branch
-`architecture-diagrams-records`, in a PR to `main` stacked on PR #2 (merge #2
+`architecture-diagrams-records`, in PR #3 to `main`, stacked on PR #2 (merge #2
 first). Next: Siddharth or Arpit reviews and merges both; installs
 `scripts/sr-guard.sh` as the `commit-msg` hook; then W-01.
 

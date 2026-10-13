@@ -27,7 +27,7 @@ entry is corrected by a new one. Distinct from `INTERVIEW.md`, which is the
 ## 2026-10-14 — architecture docs committed and PR opened  ·  Claude Code (Opus 5.5)
 
 - **Asked:** *check out a new branch for architecture diagrams and records; then: commit everything and create a PR.*
-- **Done:** branch `architecture-diagrams-records` cut from `work-system-setup`; committed the two Cowork sessions' work below (read first; SVGs checked for scripts — none) with W-01's item file staged for the guard, which was run by hand since it is not installed; pushed to the fork; opened a PR to `sid4861:main`. INTERVIEW, NOW and IMPLEMENTATION no longer say "uncommitted".
+- **Done:** branch `architecture-diagrams-records` cut from `work-system-setup`; committed the two Cowork sessions' work below (read first; SVGs checked for scripts — none) with W-01's item file staged for the guard, which was run by hand since it is not installed; pushed to the fork; opened PR #3 to `sid4861:main` (https://github.com/sid4861/pdf-testing-suite/pull/3). INTERVIEW, NOW and IMPLEMENTATION no longer say "uncommitted".
 - **Decided / left open:** the PR stacks on PR #2 (its first four commits are #2's) — merge #2 first. The Watch notes stay unfiled, as before.
 - **Mistakes:** none.
 - **Next:** Siddharth or Arpit reviews and merges PR #2 then this one; install the `commit-msg` hook; then W-01.
