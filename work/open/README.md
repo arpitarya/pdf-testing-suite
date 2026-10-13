@@ -41,7 +41,7 @@ ball: agent | human | cowork
 
 # W-nn — <title>
 
-**Arpit and Siddharth, YYYY-MM-DD:** *"<the ask, in their words>"*
+**Siddharth and Arpit, YYYY-MM-DD:** *"<the ask, in their words>"*
 
 **Model:** <Opus | Sonnet | Haiku | Cowork | NONE — who, and why>: <one sentence why>.
 

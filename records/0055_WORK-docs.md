@@ -56,7 +56,7 @@ change every later session's behaviour without anyone noticing.
    included — no proposal step.
 7. Under two obligations, both judgment: **(a) say it out loud** — a change to
    `CLAUDE.md` is named in the session output and the worklog entry; **(b) a
-   ruling of Arpit and Siddharth's, or a fact** — never latitude you were not given.
+   ruling of Siddharth and Arpit's, or a fact** — never latitude you were not given.
 8. Statements of fact are exempt from every ceremony: fixed on contact.
 9. The split is `docs/` (what the project *is*) and `work/` (what is
    *happening* to it). `work/README.md` is the map.

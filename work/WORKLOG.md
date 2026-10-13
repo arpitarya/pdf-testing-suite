@@ -17,12 +17,20 @@ entry is corrected by a new one. Distinct from `INTERVIEW.md`, which is the
 
 - **Asked:** *<the ask>*
 - **Done:** <what landed, with commit shas where they exist>
-- **Decided / left open:** <rulings taken in-session; forks put to Arpit and Siddharth>
+- **Decided / left open:** <rulings taken in-session; forks put to Siddharth and Arpit>
 - **Mistakes:** <what went wrong and what was done about it, or "none">
 - **Next:** <the single next step>
 ```
 
 ---
+
+## 2026-10-13 — decider name order changed  ·  Claude Code (Opus 5.5)
+
+- **Asked:** *wherever it says Arpit and Siddharth it should say Siddharth and Arpit.*
+- **Done:** every live file now reads "Siddharth and Arpit" (and "Siddharth or Arpit"), including the inbox heading `## Blocked on Siddharth and Arpit`. Commits `7619a37` and `f661947` are local only — the push was refused (`arpitarya` has read-only access to `sid4861/pdf-testing-suite`).
+- **Decided / left open:** the entry below keeps its original wording (worklog is append-only); this entry corrects it. How to get the PR up (write access vs a fork) is open.
+- **Mistakes:** none.
+- **Next:** get push access or approve a fork, then push and open the PR.
 
 ## 2026-10-13 — the work system set up from WORK-SYSTEM.md  ·  Claude Code (Opus 5.5)
 

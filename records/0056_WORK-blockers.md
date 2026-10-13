@@ -17,7 +17,7 @@ content_sha: ""
 
 ## §1 — For humans
 
-**When a session cannot go on without Arpit and Siddharth, it writes `work/BLOCKED.json` and
+**When a session cannot go on without Siddharth and Arpit, it writes `work/BLOCKED.json` and
 stops.** The file names the minimum question and what can safely be done
 meanwhile.
 
@@ -28,7 +28,7 @@ blocker and the inbox, and a turn cannot end while the blocker is unsurfaced.
 flowchart LR
     S["session hits a decision"] --> B["work/BLOCKED.json ASK"]
     B --> H["inject-inbox + stop-if-blocked"]
-    H --> D["Arpit and Siddharth rule"]
+    H --> D["Siddharth and Arpit rule"]
     D --> P["PROCEED + re-ball the item"]
 ```
 
@@ -51,7 +51,7 @@ past a decision produces work that has to be undone.
 ### The blockers discipline (normative)
 
 1. **A blocker is a file, not a remark.** The moment you cannot proceed
-   without Arpit and Siddharth, write `work/BLOCKED.json` and stop.
+   without Siddharth and Arpit, write `work/BLOCKED.json` and stop.
 2. Shape:
    ```json
    {"decision":"ASK","reason":"one line","questions":["the minimum question"],
@@ -73,7 +73,7 @@ past a decision produces work that has to be undone.
    never relents is a hang. Taking the third exit while still blocked breaks
    rule 6.
 9. The lock is per asset, not per session; two sessions are expected.
-10. When Arpit and Siddharth rule, the file is set back to `PROCEED` with the ruling as
+10. When Siddharth and Arpit rule, the file is set back to `PROCEED` with the ruling as
     `reason` and the resulting item re-balled in the same change.
 
 ### Consequences

@@ -55,7 +55,7 @@ handoff that names no model gets executed by whichever is open.
 
 1. **On a fork, a compare doc first** — `work/compare/<name>.compare.md`:
    verdict block on top, context, options, matrix, consequences, references,
-   **reopen-trigger** (a condition, not a date). Arpit and Siddharth accept or override the
+   **reopen-trigger** (a condition, not a date). Siddharth and Arpit accept or override the
    verdict.
 2. **On a parked idea, a proposal** — `work/proposals/<name>.md`, `status:
    proposed`, with a **graduation trigger**. Every proposal has one `B-nnn` row.

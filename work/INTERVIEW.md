@@ -32,12 +32,12 @@ product path until records claim them. **Ground it before you edit it** —
 
 ## 2 · In flight, and the immediate next step
 
-Nothing in flight. Next: Arpit or Siddharth installs `scripts/sr-guard.sh` as the
+Nothing in flight. Next: Siddharth or Arpit installs `scripts/sr-guard.sh` as the
 `commit-msg` hook; then W-01 (claim components with records).
 
 ## 3 · Standing constraints
 
-- The deciders are **Arpit and Siddharth** — rulings are theirs jointly.
+- The deciders are **Siddharth and Arpit** — rulings are theirs jointly.
 - The laws: L0 (records are the only source; links, never restatements), L1
   (retired records are archived). See `records/0001_LAWS.md`.
 - The queue is the list; a blocker is a file; nothing closed is deleted.

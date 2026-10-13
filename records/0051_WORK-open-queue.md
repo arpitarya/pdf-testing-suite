@@ -19,10 +19,10 @@ content_sha: ""
 
 **`work/OPEN-WORK.md` is the one list of what is being done.** Each item is one
 short row plus a detail file in `work/open/`. Every row opens with one ball
-that says whether it can move: 🔴 waiting on Arpit and Siddharth, 🟣 waiting on a date, 🟡
+that says whether it can move: 🔴 waiting on Siddharth and Arpit, 🟣 waiting on a date, 🟡
 waiting on another item, 🟢 free to pick up.
 
-**The top of the file is the inbox** — every decision Arpit and Siddharth owe, with its age.
+**The top of the file is the inbox** — every decision Siddharth and Arpit owe, with its age.
 A closed item's row is deleted and its file moved to `archive/open/`; nothing
 is ticked, nothing is lost.
 
@@ -90,25 +90,25 @@ gets walked past.
 15. At most 280 characters.
 16. No body — no nested bullet, no table, no indented paragraph.
 17. Every row links its own detail file, and the id in the row matches it.
-18. A *Blocked on Arpit and Siddharth* row is short too.
+18. A *Blocked on Siddharth and Arpit* row is short too.
 19. Everything else — status, evidence, records, rulings, hazards, history —
     goes in the item's file.
 
 **D · The balls**
 
 20. A ball on every row, always, and exactly one.
-21. 🔴 blocked on Arpit and Siddharth's decision — directly, or through any chain of items
+21. 🔴 blocked on Siddharth and Arpit's decision — directly, or through any chain of items
     ending at one.
 22. 🟣 gated on a named date — the row that owns the gate names `YYYY-MM-DD`;
     a row behind it names the item it waits on.
-23. 🟡 waiting on another item whose chain ends at neither Arpit and Siddharth nor a date —
+23. 🟡 waiting on another item whose chain ends at neither Siddharth and Arpit nor a date —
     the row says `waiting on W-mm`, the bare id right after the verb.
 23a. **A 🟡 row names a queue item; if none exists, the same edit files one.**
     *"Waiting on a run"*, *"waiting on an endpoint"* — each is an unfiled item
     wearing a blocker's clothes. The filed item states what the missing thing
     is, what producing it takes, and who or what can produce it. **A blocker
     that cannot be turned into an item is a reason to close**, or to put the
-    fork to Arpit and Siddharth — never a reason to stay 🟡.
+    fork to Siddharth and Arpit — never a reason to stay 🟡.
 24. 🟢 no blockers, good to go.
 25. Red wins, then purple.
 26. A date-gated item is not in the inbox.
@@ -117,12 +117,12 @@ gets walked past.
 28. When a state changes, re-ball that row and every row waiting on it.
 29. 🧨 broken, or getting worse every day it waits. Any session sets or clears
     it, on any ball.
-30. 🔺 do first — set and removed only by Arpit and Siddharth. An agent never adds one.
+30. 🔺 do first — set and removed only by Siddharth and Arpit. An agent never adds one.
 31. Mark order: the ball, then 🧨, then 🔺, then the id.
 32. **An agent picks from 🟢 only:** 🟢🧨🔺 → 🟢🔺 → 🟢🧨 → 🟢. 🔴, 🟣 and 🟡
     wait. A Claude Code session never picks from the `research` section.
 33. A session names every 🔴 decision in its first output, 🔺 first.
-34. A 🔺 item waiting on an item without 🔺 is flagged to Arpit and Siddharth, never fixed by
+34. A 🔺 item waiting on an item without 🔺 is flagged to Siddharth and Arpit, never fixed by
     giving the blocker a 🔺.
 
 **E · Ordering**
@@ -132,14 +132,14 @@ gets walked past.
     merely present.
 37. Grouped by what closing it takes — `build` (code) · `testing` (a run or a
     harness) · `record update` (a ruling or a record; no code) · `research`
-    (a proposal or compare doc reached by reading; no code; closes on Arpit and Siddharth
+    (a proposal or compare doc reached by reading; no code; closes on Siddharth and Arpit
     picking a shape).
 37a. **The `research` section runs in a chat/Cowork session, never in Claude
     Code.** Its rows' lane is `cowork`; its files say `**Model:** Cowork`.
 38. Each item's file names the record its change will update, or says
     **"no SR affected"** out loud.
 
-**F · The Blocked-on-Arpit and Siddharth inbox**
+**F · The Blocked-on-Siddharth and Arpit inbox**
 
 39. The header carries the inbox; each item's file carries its `filed` date.
 40. `age` is arithmetic — today minus `filed`, recomputed on every read, never
@@ -191,8 +191,8 @@ gets walked past.
 under its header:
 
 ```text
-**A ball on every row, always one:** 🔴 blocked on Arpit and Siddharth, directly or through another item · 🟣 gated on a named date, directly or through another item · 🟡 waiting on another item · 🟢 no blockers.
-**Optional, after the ball:** 🧨 broken or getting worse · 🔺 do first (Arpit and Siddharth only). Full legend: [SR-WORK-OPEN-QUEUE](../records/0051_WORK-open-queue.md) rules 20–34.
+**A ball on every row, always one:** 🔴 blocked on Siddharth and Arpit, directly or through another item · 🟣 gated on a named date, directly or through another item · 🟡 waiting on another item · 🟢 no blockers.
+**Optional, after the ball:** 🧨 broken or getting worse · 🔺 do first (Siddharth and Arpit only). Full legend: [SR-WORK-OPEN-QUEUE](../records/0051_WORK-open-queue.md) rules 20–34.
 ```
 
 ### Consequences

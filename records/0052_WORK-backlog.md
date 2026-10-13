@@ -71,7 +71,7 @@ queue it inflates the pending signal.
 16. Every row names what would close it.
 17–21. **Five classes, exhaustive:** `unbuilt` (ratified, not implemented) ·
     `ungated` (a rule nothing checks) · `unmeasured` (a default or claim with
-    no measurement) · `unruled` (a fork not decided — **only Arpit and Siddharth close
+    no measurement) · `unruled` (a fork not decided — **only Siddharth and Arpit close
     one**) · `cost` (a consequence accepted deliberately — **never
     graduates**; leaves when paid or when its decision reopens).
 22. One class per row: what would have to happen first.

@@ -22,7 +22,7 @@ better off. Every file has a trigger that says when it must change.
 | [`INTERVIEW.md`](INTERVIEW.md) | the state-of-play doc a cold successor reads | **during** the session, not at the end |
 | [`IMPLEMENTATION.md`](IMPLEMENTATION.md) | what shipped, when, and how it turned out | something lands |
 | [`NOW.md`](NOW.md) | one line: current state and immediate next step | every transition; `idle` when stopping |
-| [`BLOCKED.json`](BLOCKED.json) | the blocker file — [SR-WORK-BLOCKERS](../records/0056_WORK-blockers.md) | a session blocks or Arpit and Siddharth rule |
+| [`BLOCKED.json`](BLOCKED.json) | the blocker file — [SR-WORK-BLOCKERS](../records/0056_WORK-blockers.md) | a session blocks or Siddharth and Arpit rule |
 | [`LESSONS.md`](LESSONS.md) | dated lessons, newest first — a log, because the date is the lesson | a failure teaches something durable |
 | [`MACHINE.md`](MACHINE.md) | environment and tooling quirks of wherever this runs | a surface breaks in a way the code did not cause |
 | [`open/`](open/README.md) | one detail file per open `W-nn` | opened with the item, **archived** with it |
