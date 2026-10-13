@@ -38,7 +38,7 @@ record to become wrong?*
 
 | `kind` | becomes wrong when | the gate the kind selects |
 |---|---|---|
-| `law` | Siddharth and Arpit rule differently | precedence: a record conflicting with a law is void in the conflicting part |
+| `law` | Siddharth or Arpit rules differently | precedence: a record conflicting with a law is void in the conflicting part |
 | `component` | the code changes | `scripts/sr-guard.sh` — the owning record is touched in the same change |
 | `process` | the way work is done changes | it owns its enforcement — a hook or script today, a test once tests exist |
 

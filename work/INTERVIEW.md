@@ -37,7 +37,9 @@ Nothing in flight. Next: Siddharth or Arpit installs `scripts/sr-guard.sh` as th
 
 ## 3 · Standing constraints
 
-- The deciders are **Siddharth and Arpit** — rulings are theirs jointly.
+- The deciders are **Siddharth or Arpit — either one rules alone**, by default whoever
+  is committing the change, or the one a blocker names
+  ([SR-WORK-BLOCKERS](../records/0056_WORK-blockers.md) decision 11).
 - The laws: L0 (records are the only source; links, never restatements), L1
   (retired records are archived). See `records/0001_LAWS.md`.
 - The queue is the list; a blocker is a file; nothing closed is deleted.

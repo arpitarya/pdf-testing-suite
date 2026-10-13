@@ -20,7 +20,7 @@ ln -sf ../../scripts/sr-guard.sh .git/hooks/commit-msg
 
 **Before any work, read [`work/OPEN-WORK.md`](work/OPEN-WORK.md)** and ask: *is
 any item agent-closable right now?* If none is, the session's **first** output
-is the blocked-on-Siddharth and Arpit list and it then **stops**. What the first output must
+is the blocked-on-Siddharth or Arpit list and it then **stops**. What the first output must
 name, the inbox, the 5-day rule, the `↳ blocks:` sub-row and which balls an
 agent may pick from are [SR-WORK-OPEN-QUEUE](records/0051_WORK-open-queue.md)
 rules 32–34 and 39–45. **Claude Code never picks from the `research` section**
@@ -42,7 +42,7 @@ decision 13.
 | the stages a feature moves through | [SR-WORK-LIFECYCLE](records/0053_WORK-lifecycle.md) |
 | what a session owes before it ends, and how long an answer may be | [SR-WORK-SESSION](records/0054_WORK-session.md) |
 | what a task owes the documentation | [SR-WORK-DOCS](records/0055_WORK-docs.md) |
-| what to do when you cannot proceed without Siddharth and Arpit | [SR-WORK-BLOCKERS](records/0056_WORK-blockers.md) |
+| what to do when you cannot proceed without Siddharth or Arpit | [SR-WORK-BLOCKERS](records/0056_WORK-blockers.md) |
 | whether a claim may be grounded in an archived doc | [SR-WORK-ARCHIVE](records/0057_WORK-archive.md) |
 | which record owns a module | [`records/README.md`](records/README.md) §Ownership |
 | which file governs what | [SR-WORK-GOVERNANCE](records/0059_WORK-governance.md) |
@@ -61,7 +61,7 @@ Each law is stated in exactly one record and is **not restated here**:
 
 [SR-LAWS](records/0001_LAWS.md) assigns the handles and routes each to its
 record; that is all it does. Add a law by adding a record in the law range and
-a line here, on Siddharth and Arpit's ruling named in the record.
+a line here, on Siddharth's or Arpit's ruling named in the record.
 
 ## Documentation (required)
 

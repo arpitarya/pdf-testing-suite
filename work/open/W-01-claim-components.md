@@ -9,7 +9,7 @@ ball: agent
 
 # W-01 — claim every component with a record
 
-**Siddharth and Arpit, 2026-10-13:** *"Code folders the records should cover: everything in the repo."*
+**Arpit, 2026-10-13:** *"Code folders the records should cover: everything in the repo."*
 
 **Model:** Opus: deciding where one component's decision ends and another's begins is design judgment that no test checks.
 
@@ -26,7 +26,7 @@ Record (`0101`+) that states the decisions behind that component.
 | 2 · CLIs | records for `cli/` and `cli-py/` | ⏳ |
 | 3 · static | records for `public/` and `tools/` | ⏳ |
 | 4 · docs | `README.md`, `spec-standard.md`, `comparison.md`, `presentation-script.md` owned by the record they describe, or a docs record | ⏳ |
-| 5 · strays | `.tmp-old-block.txt`, `.gitignore`, `.claude/launch.json` owned or removed (a removal is Siddharth and Arpit's call) | ⏳ |
+| 5 · strays | `.tmp-old-block.txt`, `.gitignore`, `.claude/launch.json` owned or removed (a removal is Siddharth's or Arpit's call) | ⏳ |
 | 6 · table | no `W-01` left in the Ownership table; each record's `owns:` matches it | ⏳ |
 
 ## Blockers

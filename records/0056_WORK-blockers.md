@@ -17,9 +17,12 @@ content_sha: ""
 
 ## §1 — For humans
 
-**When a session cannot go on without Siddharth and Arpit, it writes `work/BLOCKED.json` and
+**When a session cannot go on without Siddharth or Arpit, it writes `work/BLOCKED.json` and
 stops.** The file names the minimum question and what can safely be done
 meanwhile.
+
+**Siddharth or Arpit can unblock it — either one, alone** — unless the blocker
+names one of them, and then only that one can.
 
 **Hooks make it impossible to miss:** every prompt is prefixed with the open
 blocker and the inbox, and a turn cannot end while the blocker is unsurfaced.
@@ -28,7 +31,7 @@ blocker and the inbox, and a turn cannot end while the blocker is unsurfaced.
 flowchart LR
     S["session hits a decision"] --> B["work/BLOCKED.json ASK"]
     B --> H["inject-inbox + stop-if-blocked"]
-    H --> D["Siddharth and Arpit rule"]
+    H --> D["Siddharth or Arpit rules"]
     D --> P["PROCEED + re-ball the item"]
 ```
 
@@ -51,7 +54,7 @@ past a decision produces work that has to be undone.
 ### The blockers discipline (normative)
 
 1. **A blocker is a file, not a remark.** The moment you cannot proceed
-   without Siddharth and Arpit, write `work/BLOCKED.json` and stop.
+   without Siddharth or Arpit, write `work/BLOCKED.json` and stop.
 2. Shape:
    ```json
    {"decision":"ASK","reason":"one line","questions":["the minimum question"],
@@ -73,13 +76,19 @@ past a decision produces work that has to be undone.
    never relents is a hang. Taking the third exit while still blocked breaks
    rule 6.
 9. The lock is per asset, not per session; two sessions are expected.
-10. When Siddharth and Arpit rule, the file is set back to `PROCEED` with the ruling as
+10. When Siddharth or Arpit rules, the file is set back to `PROCEED` with the ruling as
     `reason` and the resulting item re-balled in the same change.
+11. **Two deciders; either one rules alone.** The deciders are Siddharth and
+    Arpit, and a ruling by either one is a ruling — neither waits on the other.
+    By default a blocker is put to whoever is driving the change: the person
+    committing it (`git config user.name`). When a blocker names one of them —
+    `"who": "Siddharth"` or `"who": "Arpit"` in `work/BLOCKED.json`, or the
+    `who` cell of its inbox row — only that person's ruling closes it.
 
 ### Consequences
 
 - **Enforced today:** decisions 1, 6 and 9 through the three hooks of decision 7.
-- **Judgment today:** decisions 4, 5, 8 and 10. The third-exit escape is
+- **Judgment today:** decisions 4, 5, 8, 10 and 11 — no hook checks who ruled. The third-exit escape is
   accepted cost B-007.
 
 ### Alternatives considered

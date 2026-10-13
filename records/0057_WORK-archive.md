@@ -68,7 +68,7 @@ nobody can tell which version is authoritative.
 - **Enforced today:** nothing — a second `archive/` directory is backlog row
   B-005.
 - The archive is created empty at setup; nothing was archived by setup itself
-  (Siddharth and Arpit's instruction, 2026-10-13).
+  (Arpit's instruction, 2026-10-13).
 
 ### Alternatives considered
 

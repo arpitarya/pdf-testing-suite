@@ -3,7 +3,7 @@ type: Standing Record
 kind: law
 name: SR-LAW-0
 title: "SR-LAW-0 (0002) — L0, the records are the only source of truth"
-description: "Every rule is stated in exactly one record; every other artifact links to it; Law records outrank every other record; a Law changes only on Siddharth and Arpit's ruling."
+description: "Every rule is stated in exactly one record; every other artifact links to it; Law records outrank every other record; a Law changes only on Siddharth's or Arpit's ruling."
 status: accepted
 date: 2026-10-13
 feature: the authority of the Standing Records
@@ -66,7 +66,7 @@ they copied; two statements of one rule become two rules on the first edit.
    trade-off.
 2a. **On contact, the conflicting sentence is deleted from the lower document**
    — never softened, footnoted, or left beside a pointer.
-3. **Amendment is entrenched.** A Law changes only on Siddharth and Arpit's ruling, named in
+3. **Amendment is entrenched.** A Law changes only on Siddharth's or Arpit's ruling, named in
    the record. An ordinary record a session may accept.
 4. **The restatement test:** *could this artifact and the record disagree
    while both still look correct?* If yes it is a restatement and forbidden.
