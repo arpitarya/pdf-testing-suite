@@ -173,6 +173,8 @@ To add a flag: add the key to `flag.env`, then add a field, default, and key map
 
 ## Architecture
 
+Diagrams of the app shell, every tab, the engine and each CLI command: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ```
 src/
   types/compare.ts              Shared interfaces (no React)

@@ -152,6 +152,8 @@ directions.
 | `spec-standard.md` | W-01 | product docs — no record yet |
 | `comparison.md` | W-01 | product docs — no record yet |
 | `presentation-script.md` | W-01 | product docs — no record yet |
+| `docs/ARCHITECTURE.md` | W-01 | product architecture diagrams — no record yet |
+| `docs/architecture/` | W-01 | standalone SVGs rendered from `docs/ARCHITECTURE.md` — no record yet |
 | `.tmp-old-block.txt` | W-01 | stray file — no record yet |
 | `.gitignore` | W-01 | repo config — no record yet |
 | `.claude/launch.json` | W-01 | dev launch config — no record yet |

@@ -81,20 +81,22 @@ cannot be told apart from a stale one.
 
 | Document | Update trigger | Last verified | Notes |
 |---|---|---|---|
-| `CLAUDE.md` | any rule or pointer changes | 2026-10-13 | 2026-10-13 — created at setup |
+| `CLAUDE.md` | any rule or pointer changes | 2026-10-14 | 2026-10-14 — pointer to `docs/ARCHITECTURE.md` added |
 | `work/README.md` | a file is added to or removed from `work/` | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/OPEN-WORK.md` | the same change as the work it tracks | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/BACKLOG.md` | a record names something nobody is doing | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/open/README.md` | the item-file contract changes | 2026-10-13 | 2026-10-13 — created at setup |
-| `work/INTERVIEW.md` | direction, a decision or the live state changes — during the session | 2026-10-13 | 2026-10-13 — created at setup |
-| `work/IMPLEMENTATION.md` | something lands | 2026-10-13 | 2026-10-13 — created at setup |
+| `work/INTERVIEW.md` | direction, a decision or the live state changes — during the session | 2026-10-14 | 2026-10-14 — architecture doc noted in state of play |
+| `work/IMPLEMENTATION.md` | something lands | 2026-10-14 | 2026-10-14 — architecture doc landed |
 | `work/LESSONS.md` | a failure teaches something durable | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/MACHINE.md` | a surface breaks in a way the code did not cause | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/compare/README.md` | a fork opens, closes, or its trigger fires | 2026-10-13 | 2026-10-13 — created at setup |
 | `work/proposals/README.md` | an idea is filed, graduates, or is rejected | 2026-10-13 | 2026-10-13 — created at setup |
-| `docs/GLOSSARY.md` | a term is coined or redefined | 2026-10-13 | 2026-10-13 — created at setup |
-| `records/README.md` | a record's state, ownership or number changes | 2026-10-13 | 2026-10-13 — created at setup |
+| `docs/GLOSSARY.md` | a term is coined or redefined | 2026-10-14 | 2026-10-14 — golden PDF, candidate, letterbox added |
+| `records/README.md` | a record's state, ownership or number changes | 2026-10-14 | 2026-10-14 — ownership rows for `docs/ARCHITECTURE.md` and `docs/architecture/` |
 | `records/TEMPLATE.md` | the convention changes | 2026-10-13 | 2026-10-13 — created at setup |
+| `docs/ARCHITECTURE.md` | a change to `src/`, `cli/` or `cli-py/` alters a flow, a store, a tab, a command, a flag or a verdict rule | 2026-10-14 | 2026-10-14 — created from the code |
+| `docs/architecture/` | a Mermaid block in `docs/ARCHITECTURE.md` changes — re-render its SVG | 2026-10-14 | 2026-10-14 — 18 SVGs rendered with mermaid 10.9.1 |
 
 (`WORKLOG.md`, `NOW.md`, `BLOCKED.json` and `archive/README.md` carry no row:
 the first is append-only, the next two are overwritten every session, the last
