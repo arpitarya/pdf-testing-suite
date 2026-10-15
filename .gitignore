@@ -2,3 +2,8 @@ node_modules
 dist
 *.local
 .DS_Store
+
+# work system — hook state
+.claude/.locks/
+.claude/.stop-attempts
+.claude/.progress-nudged
