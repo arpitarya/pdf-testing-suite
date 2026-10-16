@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useCompareStore, useTotalPages } from '../../store/compareStore';
+import PagePairing, { PagePairingButton } from './PagePairing';
 
 export default function PageNavigator() {
   const total = useTotalPages();
@@ -8,8 +10,16 @@ export default function PageNavigator() {
   const countB = useCompareStore((s) => s.sideB?.pageCount ?? 0);
   const jumpToChange = useCompareStore((s) => s.jumpToChange);
   const jumpScanning = useCompareStore((s) => s.jumpScanning);
+  const pairs = useCompareStore((s) => s.pairs);
+  const [pairingOpen, setPairingOpen] = useState(false);
 
   if (total === 0) return null;
+
+  // With a pairing in force, "page 4 of 9" is not the whole truth: what matters
+  // is which golden page is being read against which tested page.
+  const pair = pairs[currentPage];
+  const paired = pair && (pair.a !== currentPage || pair.b !== currentPage);
+  const pageLabel = (n: number | null) => (n == null ? '\u2014' : String(n + 1));
 
   const mismatch = countA > 0 && countB > 0 && countA !== countB;
   const multiPage = total > 1;
@@ -36,7 +46,16 @@ export default function PageNavigator() {
         ‹
       </button>
       <span className="label">
-        Page {currentPage + 1} of {total}
+        {paired ? (
+          <>
+            <span className="pg-side gold" title="Golden PDF page">{pageLabel(pair.a)}</span>
+            <span className="pg-arrow">↔</span>
+            <span className="pg-side test" title="Page in the PDF to test">{pageLabel(pair.b)}</span>
+            <span className="pg-of">pair {currentPage + 1} of {total}</span>
+          </>
+        ) : (
+          <>Page {currentPage + 1} of {total}</>
+        )}
       </span>
       <button
         className="navbtn"
@@ -66,6 +85,9 @@ export default function PageNavigator() {
           ⚠ {countA} vs {countB}
         </span>
       )}
+
+      <PagePairingButton onOpen={() => setPairingOpen(true)} />
+      {pairingOpen && <PagePairing onClose={() => setPairingOpen(false)} />}
     </div>
   );
 }

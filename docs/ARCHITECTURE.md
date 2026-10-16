@@ -311,6 +311,29 @@ Code: `src/components/compare/CompareReport.tsx` · [`src/services/exportReport.
 
 > **Verdict.** Fixed, not adjustable: a page fails if it differs at all.
 
+## Page pairing
+
+- **The unit of comparison is a pair, not a page number.** Page 5 against page 5 is only right while both documents hold the same pages in the same order; one inserted or dropped page makes every later comparison meaningless.
+- **`pairs[]` is the navigation sequence** and `currentPage` indexes into it. It defaults to the straight 1:1 list, so nothing changes until someone pairs the pages.
+- **Pairing is done by hand, and nothing is inferred.** "Pair pages" opens a list of rows; clicking either side opens that PDF in a page picker, scrollable, with a size control. "No matching page" marks a page added or removed. Done applies it; the button then reads "Revert to page by page comparison".
+- **An automatic aligner exists in `pagePairs.ts` and is deliberately unwired** — a suggestion that is subtly wrong is worse than no suggestion in a tool whose job is to be believed. It is kept, tested, and tree-shaken out of the build.
+- **The editor warns rather than prevents:** a page used in two pairs is compared twice, and says so.
+
+```mermaid
+flowchart TB
+  D["Two PDFs loaded"] --> SEQ[("pairs[] = sequentialPairs<br/>1:1, the actual page order")]
+  SEQ --> CP
+  BTN["⇄ Pair pages"] --> ED["Row editor<br/>golden cell ↔ tested cell"]
+  ED -->|"click a cell"| PK["Page picker<br/>scroll · size control · 'No matching page'"]
+  PK --> ED
+  ED -->|"Done"| SET["setPairs — clears pageCache and summary"]
+  SET --> CP["comparePage(pageIndexA, pageIndexB)"]
+  CP --> V["Side by side · Overlapping · Report"]
+  REV["Revert to page by page comparison"] --> SEQ
+```
+
+Code: [`src/services/pagePairs.ts`](../src/services/pagePairs.ts) · `src/components/compare/PagePairing.tsx` · `src/store/compareStore.ts`
+
 ## Export menu and Import ZIP
 
 - **Every export reads the same inputs:** summary, page cache, ignored list, annotations. Only HTML is always on.

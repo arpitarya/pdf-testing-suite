@@ -87,7 +87,7 @@ function PageWithBoxes({
         </div>
       ) : (
         <div className="page-missing" style={{ width: dispW, height: dispH }}>
-          No page {currentPage + 1} on this side.
+          No corresponding page on this side.
         </div>
       )}
     </div>
@@ -102,6 +102,7 @@ export default function ContentCompareView() {
   const contentZoom = useCompareStore((s) => s.contentZoom);
   const ignoredMap = useIgnoreStore((s) => s.ignored);
   const regions = useRegionStore((s) => s.regions);
+  const pairs = useCompareStore((s) => s.pairs);
   const drawingRegion = useRegionStore((s) => s.drawing);
   const removeRegion = useRegionStore((s) => s.remove);
   const setDrawingRegion = useRegionStore((s) => s.setDrawing);
@@ -348,6 +349,17 @@ export default function ContentCompareView() {
   }
   if (!pc) return <div className="loading-center">Preparing…</div>;
 
+  // Each page's own number, which is not the navigation position once a pairing
+   // is in force — reading "GOLDEN PDF" over page 7 while the test shows page 5
+   // is exactly the confusion the pairing exists to remove.
+  const pair = pairs[currentPage];
+  const pageTitle = (side: 'A' | 'B') => {
+    const base = side === 'A' ? 'Golden PDF' : 'PDF to test';
+    const n = side === 'A' ? pair?.a : pair?.b;
+    if (!pair || (pair.a === currentPage && pair.b === currentPage)) return base;
+    return n == null ? `${base} — no page` : `${base} · page ${n + 1}`;
+  };
+
   const refImg = pc.imageA ?? pc.imageB;
   const widthFit = refImg && stageW ? (stageW - PAGE_GAP) / (refImg.width * 2) : 1;
   const fitScale = refImg ? Math.min(1, MAX_DISPLAY_H / refImg.height, widthFit) : 1;
@@ -423,7 +435,7 @@ export default function ContentCompareView() {
           <PageWithBoxes
             image={pc.imageA}
             side="A"
-            label="Golden PDF"
+            label={pageTitle('A')}
             changes={visible}
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}
@@ -434,7 +446,7 @@ export default function ContentCompareView() {
           <PageWithBoxes
             image={pc.imageB}
             side="B"
-            label="PDF to test"
+            label={pageTitle('B')}
             changes={visible}
             hlGroup={hlGroup}
             setHighlighted={setHighlighted}

@@ -30,6 +30,21 @@ const MAX_PAGE_WIDTH = 1600; // cap on target-box width in px
 export interface ComparePageOpts {
   pixelThreshold?: number;
   includeAA?: boolean;
+  /**
+   * The page to read from the document under test, 0-based, when it is not the
+   * same number as the golden page.
+   *
+   * Page 5 against page 5 is only right while both documents hold the same pages
+   * in the same order; one inserted page makes every later comparison
+   * meaningless. Passing the two numbers separately is what lets a caller say
+   * which pages actually correspond. Defaults to `pageIndex`, which is the
+   * straight page-by-page behaviour.
+   *
+   * `null` means the golden page has no counterpart at all.
+   */
+  pageIndexB?: number | null;
+  /** As `pageIndexB`, for a tested page with no golden page to compare against. */
+  pageIndexA?: number | null;
 }
 
 // ── 5.1 loadPdf ───────────────────────────────────────────────────────
@@ -786,18 +801,21 @@ export async function comparePage(
   pageIndex: number,
   opts: ComparePageOpts = {},
 ): Promise<PageComparison> {
-  const hasA = !!pdfA && pageIndex < pdfA.numPages;
-  const hasB = !!pdfB && pageIndex < pdfB.numPages;
+  // The two sides may be different page numbers, and either may be absent.
+  const idxA = opts.pageIndexA === undefined ? pageIndex : opts.pageIndexA;
+  const idxB = opts.pageIndexB === undefined ? pageIndex : opts.pageIndexB;
+  const hasA = !!pdfA && idxA != null && idxA >= 0 && idxA < pdfA.numPages;
+  const hasB = !!pdfB && idxB != null && idxB >= 0 && idxB < pdfB.numPages;
 
   const notes: string[] = [];
 
   // The golden page defines the target box; fall back to the tested page if it is missing.
   let box: { w: number; h: number; scale: number };
   if (hasA) {
-    const pageA = await pdfA!.getPage(pageIndex + 1);
+    const pageA = await pdfA!.getPage(idxA! + 1);
     box = targetBox(pageA);
   } else if (hasB) {
-    const pageB = await pdfB!.getPage(pageIndex + 1);
+    const pageB = await pdfB!.getPage(idxB! + 1);
     box = targetBox(pageB);
   } else {
     box = { w: 800, h: 1000, scale: BASE_SCALE };
@@ -812,7 +830,7 @@ export async function comparePage(
   let imagesB: TextItem[] = [];
 
   if (hasA) {
-    const pageA = await pdfA!.getPage(pageIndex + 1);
+    const pageA = await pdfA!.getPage(idxA! + 1);
     const r = await renderAndExtract(pageA, box.w, box.h);
     imageA = r.image;
     itemsA = r.items;
@@ -823,7 +841,7 @@ export async function comparePage(
   }
 
   if (hasB) {
-    const pageB = await pdfB!.getPage(pageIndex + 1);
+    const pageB = await pdfB!.getPage(idxB! + 1);
     const r = await renderAndExtract(pageB, box.w, box.h);
     imageB = r.image;
     itemsB = r.items;
@@ -880,4 +898,35 @@ export async function comparePage(
     pixel,
     notes,
   };
+}
+
+/**
+ * A small page image, for picking pages out of a list.
+ *
+ * Separate from `renderAndExtract` on purpose: that one renders at comparison
+ * scale onto a letterboxed target box and pulls the text layer with it, which is
+ * far too much work to do for a thumbnail strip. JPEG rather than PNG — a
+ * hundred page thumbnails as PNG data URLs is tens of megabytes of strings.
+ */
+export async function renderThumb(
+  doc: PDFDocumentProxy,
+  pageIndex: number,
+  width: number,
+): Promise<string> {
+  const page = await doc.getPage(pageIndex + 1);
+  try {
+    const vp1 = page.getViewport({ scale: 1 });
+    // Twice the display width, so it stays sharp on a high-density screen.
+    const viewport = page.getViewport({ scale: (width * 2) / vp1.width });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas.toDataURL('image/jpeg', 0.72);
+  } finally {
+    page.cleanup();
+  }
 }

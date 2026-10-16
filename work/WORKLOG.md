@@ -55,6 +55,23 @@ entry is corrected by a new one. Distinct from `INTERVIEW.md`, which is the
 
 ---
 
+## 2026-10-16 (cont.) — page pairing in Compare  ·  Claude Code (Opus 5)
+
+- **Asked:** *let me choose which page in the test PDF is compared with which page in the golden — a dropped page shifts everything after it, so page 5 and page 5 are not the same page. Make the UI intuitive.*
+- **Done:** uncommitted. `src/services/pagePairs.ts` (new) holds the model and the pure logic; `comparePage` gained `pageIndexA`/`pageIndexB`, defaulting to the old single index so nothing else changed. `pairs[]` is now the navigation sequence and `currentPage` indexes into it — which meant annotations, ignores, regions and all three views carried over untouched. `PagePairing.tsx` is the editor: two thumbnail columns, a gap opposite any one-sided page, click-a-page-then-its-counterpart to re-pair, unpair, "Match by content", "Back to page-by-page". The navigator shows `4 ↔ 3` instead of "page 4" once a pairing is in force, and warns when the page counts differ but nothing has been paired.
+- **Two defects in my own aligner, caught by testing before anyone saw it:** with a gap *cost*, pairing two unrelated pages (score 0) beat leaving both unmatched (−1), so a dropped page got paired with an inserted one. Rescored: a pairing is worth `similarity − MIN_SIM` and a gap is free, so pages pair only when they are alike enough. And `pairTogether` rebuilt every pair with `score: null`, so correcting one row erased the alignment's confidence on all the others; surviving pairs now keep their score.
+- **Also handled:** a PDF with no text layer cannot be aligned at all — every page looks identical — so it stays 1:1 and says why, rather than returning a confident-looking 1:1 that reads as a result.
+- **Verified:** the aligner on seven constructed cases (dropped, inserted, both at once, unrelated, identical, attempted reorder, trailing additions) and on the bundled 6-vs-5 example (95/93/100/100/87 and one missing); `pairTogether`/`unpairAt` for monotonicity and completeness across a crossing anchor; `comparePage` honouring independent indices (golden 1 vs test 1 = 95.8%, vs test 2 = 9.5%, vs nothing = one-sided); and the dialog driven in the browser end to end — open, align, pick, re-pair, reset — with a screenshot.
+- **Corrected by Siddharth:** *"the UI looks complicated"* — and a precise spec: default page-by-page, a **Pair pages** button, clicking a cell opens that PDF in a viewer modal to scroll and select, Done applies, and the button then says **Revert to page by page comparison**.
+- **Rebuilt to that:** the thumbnail grid, the click-one-then-the-other pairing and **Match by content** are gone from the UI, and `autoAlign`/`alignNote`/`alignProgress` are out of the store. `PagePairing.tsx` is now a row editor plus a `PagePicker` modal; edits are held in a draft and applied on Done, so a half-finished pairing never triggers a recompute. `pairStats`/`pairTogether`/`unpairAt` are no longer used by the UI; the aligner stays in the service, marked unwired, and is tree-shaken out.
+- **Then asked:** *the picker pages are too small to tell apart* — added a −/+ size control (220/320/420/560, default 320, remembered in localStorage). Pages render once at 420 and scale with CSS, so resizing is instant rather than a re-render of every page.
+- **One bug of mine in that control:** `resize` read `size` from its closure, so two rapid clicks both computed from the same stale value and moved one step. Functional `setSize` now steps from the previous value — verified three clicks in one tick move three steps.
+- **Verified in the browser end to end:** default button ⇄ Pair pages with the uneven-page-count warning; editor prefilled 1:1 from the real 6-vs-5 example; picker opens on the right document, preselected at the current page, 6 pages with thumbnails; picking a different page updates the row and flags the duplicate; “No matching page” makes the row one-sided; Done closes and the toolbar becomes ⇄ 6 pairs + Revert; navigating shows `5 ↔ 4 · pair 4 of 6` and page headers “Golden PDF · page 5” / “PDF to test · page 4”; Revert restores page-by-page.
+- **Also fixed:** the navigator read “5↔4**4** of 6” — two numbers running together. Now `5 ↔ 4 · pair 4 of 6` with a divider.
+- **Next:** decide on `npm publish`, then file the streams as OPEN-WORK items or fold into W-01, commit and push.
+
+---
+
 ## 2026-10-15 — group ignore operations and data regions in Side by side  ·  Claude Code (Opus 5)
 
 - **Asked:** *implement group operations on the changes list and data regions; then: the data-region button labels are ambiguous, rename them.*

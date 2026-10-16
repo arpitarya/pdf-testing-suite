@@ -1006,6 +1006,161 @@ table.report td.res-fail { color: var(--red); font-weight: 700; }
   padding: 2px 9px; border-radius: 999px; white-space: nowrap;
 }
 
+/* ── Page pairing ─────────────────── */
+/* The navigator's label, when a pairing is in force: two page numbers rather
+   than one position, colour-coded to the two documents. */
+.pagenav .pg-side {
+  display: inline-block; min-width: 20px; text-align: center;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+  border-radius: 6px; padding: 1px 7px;
+}
+.pagenav .pg-side.gold { color: var(--amber); background: var(--amber-soft); }
+.pagenav .pg-side.test { color: var(--indigo); background: var(--indigo-soft); }
+.pagenav .pg-arrow { color: var(--faint); margin: 0 5px; }
+.pagenav .pg-of {
+  color: var(--faint); font-size: 12px; font-weight: 500;
+  margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--border);
+}
+
+.pr-open.warn { border-color: var(--amber); color: var(--amber); }
+.pr-edit { background: var(--indigo-soft); border-color: var(--indigo); color: var(--indigo); font-weight: 600; }
+.pr-revert { color: var(--muted); }
+
+.doc-chip {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  border-radius: 999px; padding: 2px 8px; flex-shrink: 0;
+}
+.doc-chip.gold { color: var(--amber); background: var(--amber-soft); }
+.doc-chip.test { color: var(--indigo); background: var(--indigo-soft); }
+
+/* ── the row editor ──────────────── */
+.pr-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(15,23,42,0.42);
+  display: grid; place-items: center; padding: 24px;
+}
+.pr-dialog {
+  display: flex; flex-direction: column;
+  width: min(600px, 100%); max-height: 100%;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.pr-head { display: flex; align-items: flex-start; gap: 10px; padding: 15px 18px 13px; border-bottom: 1px solid var(--border); }
+.pr-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+
+/* One grid shared by the header and every row, so the columns line up. */
+.pr-cols, .pr-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 26px minmax(0, 1fr) 26px;
+  gap: 8px; align-items: center;
+}
+.pr-cols { padding: 11px 18px 7px; }
+.pr-colhead { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.pr-name { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pr-body { flex: 1; min-height: 0; overflow: auto; padding: 0 18px 12px; }
+.pr-row { padding: 4px 0; border-radius: 9px; }
+.pr-row.onesided .pr-vs { color: var(--amber); }
+.pr-row.dupe { background: var(--red-soft); }
+.pr-idx { font-size: 11px; font-weight: 700; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+.pr-vs { text-align: center; color: var(--faint); font-size: 15px; }
+
+/* A cell is a button that looks like the page it holds. */
+.pr-cell {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 6px 10px 6px 6px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); cursor: pointer; text-align: left;
+  transition: border-color .12s, background .12s;
+}
+.pr-cell:hover { border-color: var(--indigo); background: var(--indigo-soft); }
+.pr-cell img {
+  width: 40px; height: auto; display: block; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 3px; background: #fff;
+}
+.pr-thumbing, .pr-none {
+  width: 40px; height: 52px; flex-shrink: 0; border-radius: 3px;
+  display: grid; place-items: center;
+  background: #f1f5f9; border: 1px solid var(--border);
+  color: var(--faint); font-size: 15px;
+}
+.pr-cell.none { border-style: dashed; }
+.pr-cell.none .pr-none { border-style: dashed; background: transparent; }
+.pr-cell.none .pr-label { color: var(--faint); font-style: italic; }
+.pr-label { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.pr-del {
+  border: none; background: transparent; color: var(--faint);
+  font-size: 13px; line-height: 1; padding: 4px 6px; border-radius: 6px; cursor: pointer;
+}
+.pr-del:hover { color: var(--red); background: var(--red-soft); }
+
+.pr-add {
+  width: 100%; margin-top: 6px; padding: 8px;
+  border: 1px dashed var(--border-strong); border-radius: 10px;
+  background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.pr-add:hover { border-color: var(--indigo); color: var(--indigo); background: var(--indigo-soft); }
+
+.pr-warn {
+  margin: 0 18px 10px; padding: 8px 12px;
+  font-size: 12.5px; color: var(--text); line-height: 1.5;
+  background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 9px;
+}
+.pr-foot { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); }
+
+/* ── the page picker ────────────── */
+/* Above the editor, since it is opened from it. */
+.pk-backdrop {
+  position: fixed; inset: 0; z-index: 95;
+  background: rgba(15,23,42,0.5);
+  display: grid; place-items: center; padding: 24px;
+}
+.pk-dialog {
+  display: flex; flex-direction: column;
+  width: min(760px, 100%); height: min(820px, 100%);
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+}
+.pk-head { display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.pk-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-count { font-size: 12px; color: var(--faint); flex-shrink: 0; }
+
+/* A scrolling document, pages large enough to recognise at a glance. */
+.pk-body {
+  flex: 1; min-height: 0; overflow: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 16px; background: #f1f5f9;
+}
+.pk-page {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 8px; border: 2px solid transparent; border-radius: 10px;
+  background: transparent; cursor: pointer;
+}
+.pk-page:hover { border-color: var(--indigo); background: var(--indigo-soft); }
+.pk-page.on { border-color: var(--indigo); background: var(--indigo-soft); }
+.pk-page img {
+  height: auto; display: block; max-width: 100%;
+  border: 1px solid var(--border-strong); border-radius: 4px; background: #fff;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.1);
+}
+.pk-loading {
+  display: block; border-radius: 4px; max-width: 100%;
+  background: #fff; border: 1px solid var(--border);
+}
+.pk-num { font-size: 12px; font-weight: 600; color: var(--muted); }
+.pk-page.on .pk-num { color: var(--indigo); }
+
+.pk-foot { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-top: 1px solid var(--border); }
+.pk-foot .faint { font-size: 12px; color: var(--faint); }
+
+@media (max-width: 560px) {
+  .pr-cols, .pr-row { grid-template-columns: 18px minmax(0, 1fr) 20px minmax(0, 1fr) 22px; gap: 5px; }
+  .pr-cell { padding: 5px 6px; gap: 7px; }
+  .pr-label { font-size: 12px; }
+}
+
 /* ── Spinner ───────────────────────────────────────────── */
 .spinner {
   width: 18px; height: 18px; border: 2px solid var(--border-strong);
