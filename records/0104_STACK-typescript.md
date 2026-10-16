@@ -20,13 +20,13 @@ ratifies: W-03
 
 **One language for the whole product.** The React app, the comparison engine, the spec
 pipeline and the `pdfsuite` CLI are TypeScript. The Python CLI (`cli-py/`) is removed: the
-Node CLI already does everything it did.
+Node CLI already did everything it did. Removed 2026-10-16 (W-03).
 
 ```mermaid
 flowchart LR
   E["Engine · src/services"] --> A["App · React"]
   E --> C["CLI · cli/ (Node)"]
-  P["cli-py/ (Python)"] -.->|"removed by W-03"| X["—"]
+  P["cli-py/ (Python)"] -.->|"removed 2026-10-16"| X["—"]
 ```
 
 <details>
@@ -35,7 +35,7 @@ flowchart LR
 ```text
   engine (TS) --> app (TS)
              \--> CLI (TS, Node)
-  cli-py (Python)  ..removed by W-03..
+  cli-py (Python)  ..removed 2026-10-16..
 ```
 
 </details>
@@ -46,8 +46,8 @@ flowchart LR
 
 ### Context
 
-`cli-py/` holds a Python `generate` (a full port of the Node one) and `compare`/`pairs`
-commands that run the Node CLI. The two `generate` implementations already differ, in
+`cli-py/` held a Python `generate` (a full port of the Node one) and `compare`/`pairs`
+commands that ran the Node CLI. The two `generate` implementations had already diverged, in
 proxy support, timeout meaning and header handling. Two implementations of one thing
 drift.
 
@@ -63,7 +63,8 @@ drift.
 
 ### Consequences
 
-- **Built today:** decision 1 for `src/` and `cli/`. **W-03** removes `cli-py/`.
+- **Built:** decisions 1–3. `cli-py/` and every live reference to it were removed on
+  2026-10-16 by W-03 (archived). Decision 4 waits on the inbox ruling.
 - **Debt:** nothing checks decision 1 — backlog **B-012**.
 - Python users of `pip install pdfsuite` lose that entry point; the Node CLI replaces it.
 
@@ -76,14 +77,14 @@ drift.
 
 ### Reference (required)
 
-- [`cli-py/src/pdfsuite/generate.py`](../cli-py/src/pdfsuite/generate.py) and [`cli/src/commands/generate.ts`](../cli/src/commands/generate.ts) — the two implementations
-- [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §Python wrapper
+- [`cli/src/commands/generate.ts`](../cli/src/commands/generate.ts) — the one `generate`; the removed Python port is in git history before W-03's commit
+- [`archive/open/W-03-remove-cli-py.md`](../archive/open/W-03-remove-cli-py.md) — the removal
 
 ### Veto condition
 
 **Reopen this decision if:** a Python file appears under a product path.
 
-**How to check it:** `git ls-files 'src/*.py' 'src/**/*.py' 'cli/src/**/*.py' 'cli-py/**'` returns nothing (after W-03)
+**How to check it:** `git ls-files 'src/*.py' 'src/**/*.py' 'cli/src/**/*.py' 'cli-py/**'` returns nothing
 
 ---
 

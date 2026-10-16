@@ -110,5 +110,5 @@ docs/        WHAT THE PROJECT IS — the glossary, the architecture diagrams
 archive/     THE ONE ARCHIVE — everything retired, mirroring the live tree
 scripts/     the commit guard and the inbox check
 .claude/     hooks and their wiring
-src/ cli/ cli-py/ public/ tools/   the product — owned by W-01 until each has a record
+src/ cli/ public/ tools/   the product — owned by W-01 until each has a record
 ```

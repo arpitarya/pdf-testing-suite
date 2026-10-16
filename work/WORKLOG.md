@@ -24,6 +24,14 @@ entry is corrected by a new one. Distinct from `INTERVIEW.md`, which is the
 
 ---
 
+## 2026-10-16 — W-03: Python CLI removed; spec records committed  ·  Cowork (Opus 5.5)
+
+- **Asked:** *continue, mac shell is up.*
+- **Done:** committed the spec records and items (ca83f3e). W-03: `git rm -r cli-py`; `docs/ARCHITECTURE.md` Python section, contents link and diagram-01 node removed; `01-system-overview.svg` re-rendered, `17-cli-python-wrapper.svg` removed; presentation slide and script now "two front ends"; `CLAUDE.md`, register (SR-STACK-TYPESCRIPT built), Ownership row, registry, `tools/plan.md`, proposal. W-03 archived.
+- **Decided / left open:** inbox still holds Python in dev-only scripts. SVG files keep their numbers (18 not renumbered).
+- **Mistakes:** none.
+- **Next:** W-05.
+
 ## 2026-10-16 — Excel-spec rulings → four records and four work items  ·  Cowork (Opus 5.5)
 
 - **Asked:** *is anything still open? If not, create the records for what we talked about and file the work items.*

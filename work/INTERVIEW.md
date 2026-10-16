@@ -26,7 +26,7 @@ entry.**
 
 *Updated 2026-10-13.* The work system is set up on branch `work-system-setup`.
 The product — a React/Vite PDF comparison app (`src/`), a Node CLI (`cli/`) and
-a Python CLI (`cli-py/`) — predates it and has no records yet; W-01 owns every
+a Python CLI (`cli-py/`, removed 2026-10-16) — predates it and has no records yet; W-01 owns every
 product path until records claim them. **Ground it before you edit it** —
 `git log`, the queue, the code.
 
@@ -48,17 +48,17 @@ answers** — [SR-SPEC-INTAKE](../records/0101_SPEC-intake.md) (upload, validati
 template v2 + legacy, spec JSON with source cells), [SR-SPEC-CHECK](../records/0102_SPEC-check.md)
 (pages, fonts, colour, wording, coverage), [SR-CONSTANTS](../records/0103_CONSTANTS.md)
 (one `src/services/specConstants.ts`), [SR-STACK-TYPESCRIPT](../records/0104_STACK-typescript.md)
-(product is TypeScript; `cli-py/` goes). All accepted, none built. The proposal is
+(product is TypeScript; `cli-py/` removed same day by W-03). Only SR-STACK-TYPESCRIPT is built. The proposal is
 graduated. Real workbooks are confidential: never commit them, quote them or describe them.
 
 ## 2 · In flight, and the immediate next step
 
 *Updated 2026-10-16.* Nothing in flight. Order: **W-05** (constants file) unblocks
 **W-02** (spec intake) and **W-04** (spec checker — its DoD 1 defect fixes need only
-W-05); **W-03** (remove `cli-py/`) is independent. One inbox ruling is open: Python in
+W-05); **W-03** is closed. One inbox ruling is open: Python in
 dev-only scripts. `docs/ARCHITECTURE.md` and its SVGs are on branch
-`architecture-diagrams-records`, PR #3, stacked on PR #2. The 2026-10-14→16 spec work is
-on the device and uncommitted — the device shell was unreachable.
+`architecture-diagrams-records`, PR #3, stacked on PR #2. The 2026-10-14→16 spec work and W-03
+are committed on branch `spec-driven-comparison`, not pushed.
 
 ## 3 · Standing constraints
 

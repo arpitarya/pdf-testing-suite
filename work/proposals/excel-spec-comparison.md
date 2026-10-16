@@ -170,7 +170,7 @@ reproduces this shape with invented content.
   published October 2023 and is about 250 KB gzipped with 9 dependencies.
 - **One implementation, two front ends.** The Node CLI already reuses `src/services`
   through one seam ([`cli/src/platform/engine.ts`](../../cli/src/platform/engine.ts)).
-  A TypeScript reader there serves the app, the Node CLI and, through it, `cli-py`.
+  A TypeScript reader there serves the app and the Node CLI.
   A second Python converter would drift, as the two `generate` implementations
   already have.
 
@@ -184,8 +184,7 @@ reproduces this shape with invented content.
 3. **One reader, in TypeScript, under `src/services/`**, with no new dependency:
    `jszip` + an XML parser for the SpreadsheetML parts (sheets, shared and inline
    strings, numbers, merged ranges, bold). Cached cell values are used; formulas are
-   not evaluated. The Node CLI imports it through `engine.ts`; `cli-py` delegates to
-   Node.
+   not evaluated. The Node CLI imports it through `engine.ts`.
 4. **Three stages with a reviewable middle**, as `tools/plan.md` §3.1:
    workbook → `extraction` (candidates, source cell, tier) → compiled `PdfSpec`.
 5. **A checked-in workbook profile** holds the label vocabulary and synonyms

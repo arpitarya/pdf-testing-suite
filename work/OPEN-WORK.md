@@ -34,7 +34,6 @@ here. Read that record before changing anything below it.
 - 🟢 **W-05** · `agent` — one constants file, `src/services/specConstants.ts`; move today's scattered tunables into it, values unchanged. **Sonnet.** [detail](open/W-05-constants-file.md)
 - 🟡 **W-02** · `agent` — spec intake: upload `.xlsx` or JSON, validate it, compile to spec JSON with every value's cell. Waiting on W-05. **Opus.** [detail](open/W-02-excel-spec-comparison.md)
 - 🟡 **W-04** · `agent` — spec checker per SR-SPEC-CHECK: fix today's false failures, then pages, fonts, colour, coverage, `pdfsuite spec`. Waiting on W-05. **Opus.** [detail](open/W-04-spec-check-v2.md)
-- 🟢 **W-03** · `agent` — remove the Python CLI `cli-py/` and every live reference to it; the Node CLI is the only CLI. **Sonnet.** [detail](open/W-03-remove-cli-py.md)
 
 ### testing
 

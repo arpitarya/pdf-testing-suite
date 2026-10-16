@@ -23,7 +23,7 @@ Record (`0101`+) that states the decisions behind that component.
 | DoD | what | state |
 |---|---|---|
 | 1 · app | records for `src/` (and `index.html`, `vite.config.ts`, `tsconfig*`, `package*.json`, `flag.env`), split where decisions differ (e.g. feature flags, annotations, ignore-difference). **Spec paths done 2026-10-16:** SR-SPEC-INTAKE, SR-SPEC-CHECK, SR-CONSTANTS | ⏳ |
-| 2 · CLIs | a record for `cli/`; `cli-py/` is not claimed — it is removed by W-03 (SR-STACK-TYPESCRIPT) | ⏳ |
+| 2 · CLIs | a record for `cli/`; `cli-py/` was removed by W-03 on 2026-10-16 (SR-STACK-TYPESCRIPT) | ⏳ |
 | 3 · static | records for `public/` and `tools/` (`public/samples/spec-sample.*` and `tools/samples/excel-spec-hierarchical/` done 2026-10-16) | ⏳ |
 | 4 · docs | `README.md`, `spec-standard.md` (done: SR-SPEC-INTAKE), `comparison.md`, `presentation-script.md`, `docs/ARCHITECTURE.md`, `docs/architecture/` owned by the record they describe, or a docs record | ⏳ |
 | 5 · strays | `.tmp-old-block.txt`, `.gitignore`, `.claude/launch.json` owned or removed (a removal is Siddharth's or Arpit's call) | ⏳ |

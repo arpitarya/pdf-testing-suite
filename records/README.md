@@ -7,7 +7,7 @@ description: "The SR register: the convention, the ownership table, and the stat
 
 **How to use this file.** The naming convention, the record shape, the
 ownership table and the rules every record obeys. Read it before writing a
-record, before citing one, and before adding a module under every tracked path in the repository (`src/`, `cli/`, `cli-py/`, `public/`, `tools/` and the root files).
+record, before citing one, and before adding a module under every tracked path in the repository (`src/`, `cli/`, `public/`, `tools/` and the root files).
 
 One record per completed feature or ruled measurement. **Every record is cited
 by NAME in prose, never by number.**
@@ -117,7 +117,7 @@ Start from `TEMPLATE.md`.
 | [0101](0101_SPEC-intake.md) | **SR-SPEC-INTAKE** | The spec workbook, its validation, and its conversion to spec JSON | accepted | no |
 | [0102](0102_SPEC-check.md) | **SR-SPEC-CHECK** | Checking a PDF against spec JSON — pages, reading, comparing, coverage | accepted | no |
 | [0103](0103_CONSTANTS.md) | **SR-CONSTANTS** | One constants file for every default and limit | accepted | no |
-| [0104](0104_STACK-typescript.md) | **SR-STACK-TYPESCRIPT** | The product is TypeScript; the Python CLI is removed | accepted | no |
+| [0104](0104_STACK-typescript.md) | **SR-STACK-TYPESCRIPT** | The product is TypeScript; the Python CLI is removed | accepted | yes |
 
 ---
 
@@ -148,7 +148,6 @@ directions.
 | `src/types/spec.ts` | SR-SPEC-INTAKE | the spec JSON type |
 | `src/services/specConstants.ts` | SR-CONSTANTS | every default and limit — created by W-05 |
 | `cli/` | W-01 | the Node CLI — no record yet |
-| `cli-py/` | W-03 | the Python CLI — removed by W-03 (SR-STACK-TYPESCRIPT decision 2) |
 | `public/` | W-01 | static pages and samples — no record yet |
 | `public/samples/spec-sample.json` | SR-SPEC-CHECK | the in-app spec sample |
 | `public/samples/spec-sample.pdf` | SR-SPEC-CHECK | the in-app spec sample |

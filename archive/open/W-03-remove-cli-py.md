@@ -5,6 +5,7 @@ description: "Arpit, 2026-10-16: remove the Python CLI (cli-py/) and every live 
 item: W-03
 filed: 2026-10-16
 ball: agent
+closed: 2026-10-16
 ---
 
 # W-03 — remove the Python CLI
@@ -23,16 +24,16 @@ CLI (SR-STACK-TYPESCRIPT decision 2).
 
 | DoD | what | state |
 |---|---|---|
-| 1 · delete | `cli-py/` removed from the repo | ⏳ |
-| 2 · docs | `docs/ARCHITECTURE.md`: the *Python wrapper* section and its link in the contents removed, the Python node dropped from diagram 01; `docs/architecture/17-cli-python-wrapper.svg` removed and `01-*.svg` re-rendered | ⏳ |
-| 3 · references | no live mention left in `cli/README.md`, `cli/docs.html`, `cli/plan.md`, `README.md`, `presentation-script.md`, `public/presentation.html` (history in `work/WORKLOG.md` and `archive/` stays) | ⏳ |
-| 4 · tables | the `cli-py/` row removed from the Ownership table in `records/README.md`; registry rows for `cli-py` files removed | ⏳ |
-| 5 · check | `git ls-files 'cli-py/**'` returns nothing and `grep -rIl 'cli-py' --exclude-dir=archive --exclude=WORKLOG.md .` lists only records and this file | ⏳ |
-| 6 · record | SR-STACK-TYPESCRIPT `built` set to yes in the register; its Consequences updated | ⏳ |
+| 1 · delete | `cli-py/` removed from the repo | ✅ |
+| 2 · docs | `docs/ARCHITECTURE.md`: the *Python wrapper* section and its link in the contents removed, the Python node dropped from diagram 01; `docs/architecture/17-cli-python-wrapper.svg` removed and `01-*.svg` re-rendered | ✅ |
+| 3 · references | no live mention left in `cli/README.md`, `cli/docs.html`, `cli/plan.md`, `README.md`, `presentation-script.md`, `public/presentation.html` (history in `work/WORKLOG.md` and `archive/` stays) | ✅ |
+| 4 · tables | the `cli-py/` row removed from the Ownership table in `records/README.md`; registry rows for `cli-py` files removed | ✅ |
+| 5 · check | `git ls-files 'cli-py/**'` returns nothing and `grep -rIl 'cli-py' --exclude-dir=archive --exclude=WORKLOG.md .` lists only records and this file | ✅ |
+| 6 · record | SR-STACK-TYPESCRIPT `built` set to yes in the register; its Consequences updated | ✅ |
 
 ## Blockers
 
-None. Needs a session with a shell in the repo — the earlier session could not delete files.
+None. **Closed 2026-10-16** — done in the same session once the device shell was back.
 
 ## Record affected
 
