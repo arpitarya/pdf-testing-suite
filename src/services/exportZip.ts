@@ -18,6 +18,7 @@ import {
 } from './exportReport';
 import { bySidePage, type Annotation, type NumberedAnnotation } from '../store/annotationStore';
 import type { IgnoredChange } from '../store/ignoreStore';
+import type { DataRegion } from '../store/regionStore';
 
 export interface ZipSource {
   summary: CompareSummary;
@@ -26,6 +27,8 @@ export interface ZipSource {
   annotations: Annotation[];
   /** Differences a reviewer marked expected; recorded in the archived report. */
   ignored?: IgnoredChange[];
+  /** Areas ignored wholesale; named in the archived report with their counts. */
+  regions?: DataRegion[];
   /** Live pdf.js documents, used to recover the original bytes. */
   docA: PDFDocumentProxy | null;
   docB: PDFDocumentProxy | null;
@@ -99,7 +102,7 @@ async function annotatePdf(
 }
 
 export async function exportZipBundle(src: ZipSource, onProgress?: ZipProgress) {
-  const { summary, meta, pageCache, annotations, ignored = [] } = src;
+  const { summary, meta, pageCache, annotations, ignored = [], regions = [] } = src;
   const zip = new JSZip();
   const reports = zip.folder('reports')!;
   const pdfs = zip.folder('annotated-pdfs')!;
@@ -109,7 +112,10 @@ export async function exportZipBundle(src: ZipSource, onProgress?: ZipProgress) 
   const tick = (step: string) => onProgress?.(step, ++done, steps);
 
   onProgress?.('Building HTML report', 0, steps);
-  reports.file('comparison-report.html', await buildHtmlReport(summary, meta, pageCache, ignored));
+  reports.file(
+    'comparison-report.html',
+    await buildHtmlReport(summary, meta, pageCache, ignored, regions),
+  );
   tick('HTML report');
 
   const goldenStem = safeStem(meta.nameA);

@@ -46,7 +46,6 @@ export async function writeHtmlReport(
   const sections: string[] = [];
   for (let i = 0; i < results.length; i++) {
     const r = results[i];
-    const t = r.pair.thresholds;
 
     if (r.error) {
       sections.push(`<div class="pair-block" id="pair-${escapeHtml(r.pair.id)}">
@@ -57,7 +56,7 @@ export async function writeHtmlReport(
       continue;
     }
 
-    const detail = await reportPageDetail(r.summary, r.pageCache, t);
+    const detail = await reportPageDetail(r.summary, r.pageCache);
     const skipNote = r.pair.skipPages.length
       ? `<p class="sub">Pages excluded from the verdict: ${r.pair.skipPages.join(', ')}</p>`
       : '';
@@ -67,12 +66,11 @@ export async function writeHtmlReport(
       <p class="sub">
         <b>${escapeHtml(r.pair.referenceRel)}</b> &nbsp;vs&nbsp; <b>${escapeHtml(r.pair.candidateRel)}</b>
         · A: ${r.summary.pageCountA} pages · B: ${r.summary.pageCountB} pages
-        · thresholds content ≥ ${t.contentPct}% · pixels ≤ ${t.pixelPct}% · offset ≤ ${t.offsetIn}″
       </p>
       ${skipNote}
       <table>
         <thead><tr><th>Page</th><th>Content match</th><th>Pixels different</th><th>Max offset</th><th>Result</th></tr></thead>
-        <tbody>${reportPageRows(r.summary, t)}</tbody>
+        <tbody>${reportPageRows(r.summary)}</tbody>
       </table>
       ${detail}
     </div>`);
@@ -94,7 +92,7 @@ export async function writeHtmlReport(
   <div class="meta-grid">
     <div><span>Reference:</span> <b>${escapeHtml(ctx.referenceDir)}</b></div>
     <div><span>Candidate:</span> <b>${escapeHtml(ctx.candidateDir)}</b></div>
-    <div><span>Default thresholds:</span> <b>${escapeHtml(ctx.thresholdsLabel)}</b></div>
+    <div><span>Verdict:</span> <b>a page fails if it differs at all</b></div>
     <div><span>Generated:</span> <b>${ctx.generatedAt.toLocaleString()}</b></div>
   </div>
   <h2>Overview</h2>

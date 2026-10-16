@@ -4,6 +4,7 @@ import { exportCsv, exportHtmlReport, exportJson } from '../../services/exportRe
 import { exportMarkdownReport } from '../../services/exportMarkdown';
 import { useAnnotationStore } from '../../store/annotationStore';
 import { ignoredList, useIgnoreStore } from '../../store/ignoreStore';
+import { useRegionStore } from '../../store/regionStore';
 import { flags } from '../../flags';
 
 // Lives in the app header, so it is on screen in every compare mode — including
@@ -18,6 +19,7 @@ export default function ExportMenu() {
   const annotations = useAnnotationStore((s) => s.annotations);
   const ignoredMap = useIgnoreStore((s) => s.ignored);
   const ignored = ignoredList(ignoredMap);
+  const regions = useRegionStore((s) => s.regions);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportingHtml, setExportingHtml] = useState(false);
@@ -72,7 +74,7 @@ export default function ExportMenu() {
               setMenuOpen(false);
               setExportingHtml(true);
               try {
-                await exportHtmlReport(summary, meta, pageCache, ignored);
+                await exportHtmlReport(summary, meta, pageCache, ignored, regions);
               } finally {
                 setExportingHtml(false);
               }
@@ -130,6 +132,7 @@ export default function ExportMenu() {
                       pageCache,
                       annotations,
                       ignored,
+                      regions,
                       docA: sideA?.doc ?? null,
                       docB: sideB?.doc ?? null,
                     },

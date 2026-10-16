@@ -4,7 +4,7 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import { loadPdf } from './pdfCompare'; // reuses the worker setup + loader
+import { loadPdf } from './pdfjs';
 import type {
   Box,
   CheckResult,
@@ -18,7 +18,7 @@ import type {
   SpecUnit,
   TableSpec,
   TextSpec,
-} from '../types/spec';
+} from './types';
 
 export { loadPdf };
 

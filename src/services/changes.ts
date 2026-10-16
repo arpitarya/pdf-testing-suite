@@ -125,6 +125,19 @@ export function buildChanges(pc: PageComparison, movedThresholdIn: number): Chan
       raw.push({ type: 'moved', text: p.a.str, a: p.a, b: p.b, offset: p.offset });
     }
   }
+  // Images travel the same path as text from here on, so a logo that moved gets
+  // the same box, number and list entry a moved sentence does.
+  const img = pc.match.images;
+  if (img) {
+    for (const it of img.onlyA) raw.push({ type: 'removed', text: 'Image', a: it, b: null });
+    for (const it of img.onlyB) raw.push({ type: 'added', text: 'Image', a: null, b: it });
+    for (const p of img.matched) {
+      if (p.offset > thresholdPx) {
+        raw.push({ type: 'moved', text: 'Image', a: p.a, b: p.b, offset: p.offset });
+      }
+    }
+  }
+
   raw.sort((r1, r2) => {
     const b1 = (r1.a ?? r1.b)!;
     const b2 = (r2.a ?? r2.b)!;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSpecStore } from '../../store/specStore';
-import { exportSpecHtml, exportSpecJson } from '../../services/specExport';
+import { useSpecStore } from './specStore';
+import { exportSpecHtml, exportSpecJson } from './specExport';
 import { flags } from '../../flags';
 
 // Header-mounted twin of the compare workspace's ExportMenu: always on screen

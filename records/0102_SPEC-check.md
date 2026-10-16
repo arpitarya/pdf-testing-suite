@@ -7,7 +7,7 @@ description: "How the checker binds pages, reads the PDF, compares each assertio
 status: accepted
 date: 2026-10-16
 feature: spec check — a PDF against spec JSON
-owns: [src/services/specCheck.ts, src/services/specExport.ts, src/store/specStore.ts, src/components/spec/, public/samples/spec-sample.json, public/samples/spec-sample.pdf]
+owns: [src/features/spec/specCheck.ts, src/features/spec/specExport.ts, src/features/spec/specStore.ts, src/features/spec/SpecTestView.tsx, src/features/spec/SpecExportMenu.tsx, public/samples/spec-sample.json, public/samples/spec-sample.pdf]
 laws: [L0]
 timestamp: 2026-10-16T11:30:00+05:30
 content_sha: ""
@@ -143,8 +143,8 @@ HTML export inserts `units` unescaped; images inside Form XObjects are mis-place
 
 ### Reference (required)
 
-- [`src/services/specCheck.ts`](../src/services/specCheck.ts) — today's `runSpec`, `groupLines`, `extractImages`
-- [`src/components/spec/SpecTestView.tsx`](../src/components/spec/SpecTestView.tsx) — today's upload and report view
+- [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) — today's `runSpec`, `groupLines`, `extractImages`
+- [`src/features/spec/SpecTestView.tsx`](../src/features/spec/SpecTestView.tsx) — today's upload and report view
 - [`tools/samples/excel-spec-hierarchical/README.md`](../tools/samples/excel-spec-hierarchical/README.md) — expected results, including today's false failures
 
 ### Veto condition
@@ -162,7 +162,7 @@ any failure once W-04 has landed.
 
 **Code**
 
-- [`src/services/specCheck.ts`](../src/services/specCheck.ts) · [`src/services/specExport.ts`](../src/services/specExport.ts) · [`src/store/specStore.ts`](../src/store/specStore.ts) · [`src/components/spec/`](../src/components/spec/)
+- [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) · [`src/features/spec/specExport.ts`](../src/features/spec/specExport.ts) · [`src/features/spec/specStore.ts`](../src/features/spec/specStore.ts) · [`src/features/spec/SpecTestView.tsx`, `src/features/spec/SpecExportMenu.tsx`](../src/features/spec/SpecTestView.tsx, src/features/spec/SpecExportMenu.tsx)
 
 **Project docs**
 

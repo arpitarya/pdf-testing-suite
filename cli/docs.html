@@ -369,7 +369,7 @@ Generate PDFs from JSON payloads and check them against golden references.
 
 <span class="warnc">Exit codes</span>
 <span class="ok">  0</span>  every pair passed
-<span class="bad">  1</span>  a pair breached its thresholds <span class="dim">— the PDFs changed</span>
+<span class="bad">  1</span>  a pair differs <span class="dim">— the PDFs are not the same</span>
 <span class="warnc">  2</span>  tool error <span class="dim">— bad args, API unreachable, unmatched pair, nothing to compare</span>
 
 <span class="dim">Run `pdfsuite &lt;command&gt; --help` for the full flag list of any command.</span></div>
@@ -559,18 +559,24 @@ Building visual HTML report … done
       </table>
 
       <h3>What makes a page fail</h3>
-      <p>A page passes when it clears all three thresholds. Any breach is named explicitly in the output
-        and in the JUnit failure message, so you never have to guess which metric moved.</p>
+      <p><b>A page fails if anything changed.</b> There are no tolerances to tune: the question a report
+        answers is “did anything change?”, and a knob that lets a real change be declared acceptable only
+        hides it. Everything that moved is named in the output and in the JUnit failure message, so you
+        never have to guess which metric it was.</p>
       <div class="grid3">
         <div class="card"><b>Content match</b><span>Share of text identical between the two pages.
-          Must be <b>≥</b> the threshold. Catches wording changes.</span></div>
+          Catches wording changes.</span></div>
         <div class="card"><b>Pixels different</b><span>Share of pixels that differ visually.
-          Must be <b>≤</b> the threshold. Catches colour, spacing and graphics changes with no text delta.</span></div>
+          Catches colour, spacing and graphics changes with no text delta.</span></div>
         <div class="card"><b>Max offset</b><span>Largest distance a shared text run moved, in inches.
-          Must be <b>≤</b> the threshold. Catches layout drift.</span></div>
+          Catches layout drift.</span></div>
       </div>
       <p class="muted">A page present on only one side is always a failure — it means a page was added or
-        dropped.</p>
+        dropped. The verdict is the app's own <code>summaryPageDiffers</code>, so the CLI and the app
+        cannot disagree about the same pair.</p>
+      <p class="muted"><code>--pixel-threshold</code> is not a tolerance despite the name: it is
+        pixelmatch's colour sensitivity, how different two pixels must be before they count as
+        different at all.</p>
     </section>
 
     <!-- PAIRS -->
@@ -582,7 +588,7 @@ Building visual HTML report … done
       <div class="term">
         <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i><span class="term-title">fixtures/pairs.json</span></div>
         <div class="term-body"><span class="dim">{</span>
-  <span class="hl">"defaults"</span>: <span class="dim">{</span> <span class="hl">"contentPct"</span>: 99, <span class="hl">"pixelPct"</span>: 2, <span class="hl">"offsetIn"</span>: 0.03 <span class="dim">},</span>
+  <span class="dim">// no tolerances — a page fails if it differs at all</span>
 
   <span class="hl">"pairs"</span>: <span class="dim">[</span>
     <span class="dim">{</span>
@@ -591,7 +597,7 @@ Building visual HTML report … done
       <span class="hl">"reference"</span>: <span class="ok">"invoice-original.pdf"</span>,   <span class="dim">// under --reference</span>
       <span class="hl">"candidate"</span>: <span class="ok">"invoice-standard.pdf"</span>,   <span class="dim">// under --candidate</span>
 
-      <span class="hl">"thresholds"</span>: <span class="dim">{</span> <span class="hl">"pixelPct"</span>: 5 <span class="dim">},</span>        <span class="dim">// overrides defaults</span>
+
       <span class="hl">"skipPages"</span>:  <span class="dim">[</span>6<span class="dim">]</span>                       <span class="dim">// 1-based, excluded from verdict</span>
     <span class="dim">}</span>
   <span class="dim">]</span>
@@ -605,8 +611,8 @@ Building visual HTML report … done
           <tr><td><code>name</code></td><td>Human label shown in reports. Defaults to <code>id</code>.</td></tr>
           <tr><td><code>reference</code> <i>required</i></td><td>Path relative to <code>--reference</code>. Never absolute.</td></tr>
           <tr><td><code>candidate</code> <i>required</i></td><td>Path relative to <code>--candidate</code>. Never absolute.</td></tr>
-          <tr><td><code>thresholds</code></td><td>Per-pair overrides merged over <code>defaults</code>. Use for documents that are legitimately noisier.</td></tr>
-          <tr><td><code>skipPages</code></td><td>1-based page numbers excluded from the verdict — generated dates, barcodes, anything that always differs.</td></tr>
+          <tr><td><code>skipPages</code></td><td>1-based page numbers excluded from the verdict — generated dates, barcodes, anything that always differs. The <b>only</b> way to exempt anything, and it exempts the whole page, visibly.</td></tr>
+          <tr><td><code>defaults</code>, <code>thresholds</code></td><td><i>Accepted and ignored.</i> An older file still loads, and the run prints a line saying the tolerances are not in force.</td></tr>
         </tbody>
       </table>
 
@@ -637,7 +643,7 @@ Building visual HTML report … done
             <li>url, headers, responsePath</li>
             <li>timeout, retries, backoff</li>
             <li>concurrency, heartbeat</li>
-            <li>compare formats &amp; thresholds</li>
+            <li>compare formats &amp; sensitivity</li>
           </ul>
         </div>
         <div>
@@ -770,9 +776,9 @@ Building visual HTML report … done
         a pipeline react correctly to each.</p>
       <div class="exits">
         <div class="exit e0"><div class="n">0</div><div class="t">Passed</div>
-          <div class="d">Every pair cleared its thresholds.</div></div>
+          <div class="d">Every pair matched its golden exactly.</div></div>
         <div class="exit e1"><div class="n">1</div><div class="t">Comparison failed</div>
-          <div class="d">At least one pair breached a threshold. The documents changed — investigate the report.</div></div>
+          <div class="d">At least one pair differs. The documents changed — investigate the report.</div></div>
         <div class="exit e2"><div class="n">2</div><div class="t">Tool error</div>
           <div class="d">Bad arguments, unreachable API, unreadable PDF, unmatched pair, zero pairs resolved. The job is broken, not the PDFs.</div></div>
       </div>
@@ -804,7 +810,7 @@ Building visual HTML report … done
         </div>
         <div class="card">
           <div class="ic">🧾</div><b>report.json</b>
-          <span>Per-pair and per-page metrics, verdicts, and the specific thresholds breached. For scripts
+          <span>Per-pair and per-page metrics, verdicts, and what differed on each failing page. For scripts
             that need to act on the detail.</span>
         </div>
         <div class="card">

@@ -1,13 +1,41 @@
 {
-  "name": "pdfsuite-cli",
-  "private": true,
+  "name": "pdfsuite",
   "version": "1.0.0",
+  "description": "Headless PDF comparison for CI \u2014 compares candidate PDFs against golden references and writes an annotated HTML report.",
+  "keywords": [
+    "pdf",
+    "diff",
+    "compare",
+    "visual-regression",
+    "ci",
+    "pdfjs"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sid4861/pdf-testing-suite.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/sid4861/pdf-testing-suite/tree/main/cli#readme",
+  "bugs": {
+    "url": "https://github.com/sid4861/pdf-testing-suite/issues"
+  },
   "type": "module",
   "bin": {
-    "pdfsuite": "./dist/index.js"
+    "pdfsuite": "dist/index.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/pdf.worker.mjs",
+    "README.md"
+  ],
   "scripts": {
-    "build": "node build.mjs",
+    "build": "tsc --noEmit && node build.mjs",
+    "prepublishOnly": "npm run build",
+    "portable": "sh scripts/make-portable.sh",
     "mock-api": "node mock-api/server.js",
     "spike": "node build.mjs --entry spike/run-engine.ts --out .work/spike.js && node .work/spike.js",
     "verify:classification": "python verify/make-cases.py && node build.mjs --entry verify/classification.ts --out .work/classification.js && node .work/classification.js",
@@ -17,14 +45,14 @@
     "verify:spec": "node build.mjs --entry verify/spec-target.ts --out .work/spec-target.js && node .work/spec-target.js"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.65",
-    "commander": "^12.1.0",
-    "express": "^4.21.1"
+    "@napi-rs/canvas": "^0.1.65"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.16.11",
+    "commander": "^12.1.0",
     "esbuild": "^0.24.0",
+    "express": "^4.21.1",
     "typescript": "^5.6.2"
   }
 }

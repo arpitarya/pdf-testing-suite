@@ -5,7 +5,10 @@
 //   1. `?url` imports — pdfCompare.ts line 6 does
 //      `import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`.
 //      That suffix is a Vite build-time transform; Node cannot resolve it. The plugin
-//      below turns it into a module exporting the resolved file path as a string.
+//      below turns it into a module that resolves the file NEXT TO THE BUNDLE at
+//      runtime. It used to bake in an absolute path, which works in a checkout and
+//      breaks the moment the package is installed anywhere else — so the worker is
+//      copied into the output directory and found through `import.meta.url`.
 //
 //   2. pdfjs-dist build selection — the default browser build assumes DOM at import time.
 //      Alias it to the legacy build, which runs under Node.
@@ -41,13 +44,19 @@ const urlSuffixPlugin = {
 
     build.onLoad({ filter: /.*/, namespace: 'url-suffix' }, (args) => {
       // The app asks for the minified browser worker; under Node we hand back the
-      // legacy worker instead. Any other ?url import resolves normally.
-      const resolved = args.path.includes('pdf.worker')
-        ? pdfjsLegacyWorker
-        : path.resolve(nodeModules, args.path);
-      // pdf.js import()s this value. Node's ESM loader rejects bare Windows paths
-      // ("protocol 'c:'"), so hand back a file:// URL.
-      const href = pathToFileURL(resolved).href;
+      // legacy worker instead, copied next to the bundle. pdf.js import()s this
+      // value, and Node's ESM loader rejects bare Windows paths ("protocol 'c:'"),
+      // so it has to be a URL — built at runtime, not at build time.
+      if (args.path.includes('pdf.worker')) {
+        return {
+          contents:
+            "export default new URL('./" +
+            WORKER_BASENAME +
+            "', import.meta.url).href;\n",
+          loader: 'js',
+        };
+      }
+      const href = pathToFileURL(path.resolve(nodeModules, args.path)).href;
       return { contents: `export default ${JSON.stringify(href)};`, loader: 'js' };
     });
   },
@@ -60,6 +69,9 @@ const pdfjsLegacyPlugin = {
     build.onResolve({ filter: /^pdfjs-dist$/ }, () => ({ path: pdfjsLegacy }));
   },
 };
+
+/** The worker's name beside the bundle. Referenced by the plugin above. */
+const WORKER_BASENAME = 'pdf.worker.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -87,3 +99,10 @@ await esbuild.build({
   },
   logLevel: 'info',
 });
+
+// The worker has to sit beside whatever was just built — dist/ for the published
+// bundle, .work/ for a verify script — because that is where the generated module
+// above looks for it.
+const outDir = path.dirname(path.join(here, outfile));
+fs.copyFileSync(pdfjsLegacyWorker, path.join(outDir, WORKER_BASENAME));
+console.log(`  copied ${WORKER_BASENAME} → ${path.relative(here, outDir)}/`);

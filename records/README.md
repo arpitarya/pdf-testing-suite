@@ -141,11 +141,12 @@ directions.
 | `.claude/hooks/session-lock.sh` | SR-WORK-BLOCKERS | decision 7 |
 | `.claude/hooks/require-progress.sh` | SR-WORK-SESSION | decision 5 |
 | `src/` | W-01 | the React/Vite PDF compare app — no record yet |
-| `src/services/specCheck.ts` | SR-SPEC-CHECK | the spec checker |
-| `src/services/specExport.ts` | SR-SPEC-CHECK | the spec report exports |
-| `src/store/specStore.ts` | SR-SPEC-CHECK | the spec tab's state |
-| `src/components/spec/` | SR-SPEC-CHECK | the spec tab |
-| `src/types/spec.ts` | SR-SPEC-INTAKE | the spec JSON type |
+| `src/features/spec/specCheck.ts` | SR-SPEC-CHECK | the spec checker |
+| `src/features/spec/specExport.ts` | SR-SPEC-CHECK | the spec report exports |
+| `src/features/spec/specStore.ts` | SR-SPEC-CHECK | the spec tab's state |
+| `src/features/spec/SpecTestView.tsx` | SR-SPEC-CHECK | the spec tab |
+| `src/features/spec/SpecExportMenu.tsx` | SR-SPEC-CHECK | the spec tab's export menu |
+| `src/features/spec/types.ts` | SR-SPEC-INTAKE | the spec JSON type |
 | `src/services/specConstants.ts` | SR-CONSTANTS | every default and limit — created by W-05 |
 | `cli/` | W-01 | the Node CLI — no record yet |
 | `public/` | W-01 | static pages and samples — no record yet |
@@ -182,8 +183,8 @@ A component may be narrowed to symbols: `` `path::name,name` ``.
 
 | component | describer | why |
 |---|---|---|
-| `src/store/specStore.ts` | SR-SPEC-INTAKE | holds the uploaded spec and its validation (decisions 1, 2, 13) |
-| `src/components/spec/SpecTestView.tsx` | SR-SPEC-INTAKE | the spec upload — accepted types, label, downloads (decisions 1, 14) |
-| `src/services/specCheck.ts::validateSpec` | SR-SPEC-INTAKE | validates an uploaded spec JSON (decision 2) |
+| `src/features/spec/specStore.ts` | SR-SPEC-INTAKE | holds the uploaded spec and its validation (decisions 1, 2, 13) |
+| `src/features/spec/SpecTestView.tsx` | SR-SPEC-INTAKE | the spec upload — accepted types, label, downloads (decisions 1, 14) |
+| `src/features/spec/specCheck.ts::validateSpec` | SR-SPEC-INTAKE | validates an uploaded spec JSON (decision 2) |
 
 <!-- DESCRIBES-TABLE-END -->

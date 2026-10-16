@@ -1,4 +1,5 @@
 import { useCompareStore, useTotalPages } from '../../store/compareStore';
+import { pairLabel } from '../../services/pagePairs';
 import { pageHasChange, summaryPageDiffers } from '../../services/changes';
 
 type Status = 'diff' | 'same' | 'missing' | 'unknown';
@@ -10,6 +11,7 @@ export default function PageStrip() {
   const summary = useCompareStore((s) => s.summary);
   const pageCache = useCompareStore((s) => s.pageCache);
   const movedThreshold = useCompareStore((s) => s.offsetThresholdIn);
+  const pairs = useCompareStore((s) => s.pairs);
 
   if (total <= 1) return null;
 
@@ -44,7 +46,11 @@ export default function PageStrip() {
             <button
               key={i}
               className={`pdot ${st} ${i === currentPage ? 'current' : ''}`}
-              title={`Page ${i + 1} — ${labels[st]}`}
+              title={
+                pairs[i] && (pairs[i].a !== i || pairs[i].b !== i)
+                  ? `${pairLabel(pairs[i])} — ${labels[st]}`
+                  : `Page ${i + 1} — ${labels[st]}`
+              }
               onClick={() => setCurrentPage(i)}
             >
               {showNumbers ? i + 1 : ''}

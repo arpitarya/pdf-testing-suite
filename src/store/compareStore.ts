@@ -11,6 +11,7 @@ import type {
 } from '../types/compare';
 import { comparePage, loadPdf } from '../services/pdfCompare';
 import { pageHasChange } from '../services/changes';
+import { sequentialPairs, type PagePair } from '../services/pagePairs';
 import { flags } from '../flags';
 
 export interface LoadedSide {
@@ -46,6 +47,19 @@ interface CompareState {
   // Built-in example
   loadingExample: boolean;
   loadExample: () => Promise<void>;
+
+  /**
+   * Which golden page is compared with which tested page, in order. This is the
+   * navigation sequence: `currentPage` indexes into it.
+   *
+   * Defaults to the straight 1:1 list, so nothing changes until a pairing is
+   * edited or auto-aligned.
+   */
+  pairs: PagePair[];
+  /** True once someone paired the pages by hand rather than 1:1. */
+  pairsEdited: boolean;
+  setPairs: (pairs: PagePair[]) => void;
+  resetPairs: () => void;
 
   // Navigation + mode
   currentPage: number;
@@ -97,10 +111,18 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     set({ [loadingKey]: true, [errorKey]: null } as Partial<CompareState>);
     try {
       const doc = await loadPdf(file);
+      const loaded = { name: file.name, doc, pageCount: doc.numPages };
+      const other = side === 'A' ? get().sideB : get().sideA;
       set({
-        [sideKey]: { name: file.name, doc, pageCount: doc.numPages },
+        [sideKey]: loaded,
         [loadingKey]: false,
-        // Cache invalidation on any side change.
+        // Cache invalidation on any side change. The pairing goes back to 1:1 —
+        // the old one named page numbers in a document that is no longer here.
+        pairs: sequentialPairs(
+          side === 'A' ? loaded.pageCount : other?.pageCount ?? 0,
+          side === 'B' ? loaded.pageCount : other?.pageCount ?? 0,
+        ),
+        pairsEdited: false,
         pageCache: {},
         summary: null,
         currentPage: 0,
@@ -120,6 +142,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     set({
       [sideKey]: null,
       [errorKey]: null,
+      pairs: [],
+      pairsEdited: false,
       pageCache: {},
       summary: null,
       currentPage: 0,
@@ -133,6 +157,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       sideB: b,
       errorA: null,
       errorB: null,
+      pairs: sequentialPairs(a.pageCount, b.pageCount),
+      pairsEdited: false,
       pageCache: {},
       summary: null,
       currentPage: 0,
@@ -148,6 +174,8 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       sideB: b,
       errorA: null,
       errorB: null,
+      pairs: sequentialPairs(a.pageCount, b.pageCount),
+      pairsEdited: false,
       pageCache: {},
       summary: null,
       currentPage: 0,
@@ -181,10 +209,36 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     }
   },
 
+  pairs: [],
+  pairsEdited: false,
+
+  setPairs(pairs) {
+    set({
+      pairs,
+      pairsEdited: true,
+      pageCache: {},
+      summary: null,
+      currentPage: Math.min(get().currentPage, Math.max(0, pairs.length - 1)),
+      importedReportHtml: null,
+    });
+  },
+
+  resetPairs() {
+    const { sideA, sideB } = get();
+    set({
+      pairs: sequentialPairs(sideA?.pageCount ?? 0, sideB?.pageCount ?? 0),
+      pairsEdited: false,
+      pageCache: {},
+      summary: null,
+      currentPage: 0,
+      importedReportHtml: null,
+    });
+  },
+
   currentPage: 0,
   mode: 'content',
   setCurrentPage(i) {
-    const total = maxPages(get().sideA, get().sideB);
+    const total = get().pairs.length || maxPages(get().sideA, get().sideB);
     const clamped = Math.max(0, Math.min(i, Math.max(0, total - 1)));
     set({ currentPage: clamped });
   },
@@ -195,7 +249,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
   jumpScanning: false,
   async jumpToChange(dir) {
     const { sideA, sideB, pixelThreshold, includeAA, offsetThresholdIn } = get();
-    const total = maxPages(sideA, sideB);
+    const total = get().pairs.length || maxPages(sideA, sideB);
     if (total <= 1) return;
 
     set({ jumpScanning: true });
@@ -207,9 +261,12 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 
         let pc = get().pageCache[i];
         if (!pc) {
+          const pair = get().pairs[i];
           pc = await comparePage(sideA?.doc ?? null, sideB?.doc ?? null, i, {
             pixelThreshold,
             includeAA,
+            pageIndexA: pair?.a ?? i,
+            pageIndexB: pair?.b ?? i,
           });
           set((s) => ({ pageCache: { ...s.pageCache, [i]: pc! } }));
         }
@@ -257,11 +314,14 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     if (pageCache[i]) return;
     if (!sideA || !sideB) return;
 
+    const pair = get().pairs[i];
     set({ computing: true });
     try {
       const result = await comparePage(sideA.doc, sideB.doc, i, {
         pixelThreshold,
         includeAA,
+        pageIndexA: pair?.a ?? i,
+        pageIndexB: pair?.b ?? i,
       });
       set((s) => ({ pageCache: { ...s.pageCache, [i]: result } }));
     } finally {
@@ -276,7 +336,7 @@ export const useCompareStore = create<CompareState>((set, get) => ({
     const { sideA, sideB, pixelThreshold, includeAA } = get();
     if (!sideA && !sideB) return;
 
-    const total = maxPages(sideA, sideB);
+    const total = get().pairs.length || maxPages(sideA, sideB);
     set({ computingSummary: true, summaryProgress: { current: 0, total } });
 
     const pages: PageSummary[] = [];
@@ -286,9 +346,12 @@ export const useCompareStore = create<CompareState>((set, get) => ({
       try {
         let pc = newCache[i];
         if (!pc) {
+          const pair = get().pairs[i];
           pc = await comparePage(sideA?.doc ?? null, sideB?.doc ?? null, i, {
             pixelThreshold,
             includeAA,
+            pageIndexA: pair?.a ?? i,
+            pageIndexB: pair?.b ?? i,
           });
           newCache[i] = pc;
         }
@@ -331,4 +394,4 @@ export const useCompareStore = create<CompareState>((set, get) => ({
 export const useBothLoaded = () =>
   useCompareStore((s) => !!s.sideA && !!s.sideB);
 export const useTotalPages = () =>
-  useCompareStore((s) => maxPages(s.sideA, s.sideB));
+  useCompareStore((s) => s.pairs.length || maxPages(s.sideA, s.sideB));

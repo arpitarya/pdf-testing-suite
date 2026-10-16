@@ -60,7 +60,7 @@ ${c.b('Typical run')}
 
 ${c.b('Exit codes')}
   ${c.green('0')}  every pair passed
-  ${c.red('1')}  a pair breached its thresholds ${c.dim('— the PDFs changed')}
+  ${c.red('1')}  a pair differs ${c.dim('— the PDFs are not the same')}
   ${c.yellow('2')}  tool error ${c.dim('— bad args, API unreachable, unmatched pair, nothing to compare')}
 
 ${c.b('Configuration')}
@@ -179,6 +179,10 @@ ${c.b('Notes')}
 program
   .command('compare')
   .description('Compare candidate PDFs against golden references and write reports')
+  .argument('[golden]', 'directory of golden/reference PDFs')
+  .argument('[candidate]', 'directory of PDFs to check')
+  .argument('[pairs]', 'pairs.json describing which file maps to which')
+  .argument('[reports]', 'directory to write reports into')
   .option('-r, --reference <dir>', 'directory of golden/reference PDFs [config: paths.reference]')
   .option('-c, --candidate <dir>', 'directory of PDFs to check [config: paths.candidate]')
   .option('-P, --pairs <file>', 'pairs.json describing which file maps to which [config: paths.pairs]')
@@ -195,19 +199,21 @@ program
     'after',
     `
 ${c.b('Examples')}
-  pdfsuite compare --reference ./golden --candidate ./candidates --pairs ./pairs.json --report ./reports
+  pdfsuite compare ./golden ./candidates ./pairs.json ./reports
+
+  ${c.dim('# the same thing with flags, which also work and override a positional')}
+  pdfsuite compare -r ./golden -c ./candidates -P ./pairs.json -o ./reports
 
   ${c.dim('# just the CI-facing outputs, skip the heavy visual report')}
-  pdfsuite compare -r ./golden -c ./candidates -P ./pairs.json -o ./reports --format junit,json
+  pdfsuite compare ./golden ./candidates ./pairs.json ./reports --format junit,json
 
   ${c.dim('# produce reports but never fail the build')}
-  pdfsuite compare -r ./golden -c ./candidates -P ./pairs.json -o ./reports --fail-on none
+  pdfsuite compare ./golden ./candidates ./pairs.json ./reports --fail-on none
 
-${c.b('A page fails if any threshold is breached')}
-  content match   must be ${c.teal('>=')} contentPct   ${c.dim('wording changed')}
-  pixels differ   must be ${c.teal('<=')} pixelPct     ${c.dim('colour / spacing / graphics changed')}
-  max offset      must be ${c.teal('<=')} offsetIn     ${c.dim('layout drifted')}
-  ${c.dim('A page present on only one side always fails.')}
+${c.b('A page fails if it differs at all')}
+  ${c.dim('There are no tolerances. The question a report answers is "did anything')}
+  ${c.dim('change?", and a knob that lets a real change be called acceptable only')}
+  ${c.dim('hides it. A page present on only one side fails too.')}
 
 ${c.b('Formats')}
   ${c.teal('html')}   visual report — annotated pages and the pixel-diff heatmap
@@ -217,33 +223,37 @@ ${c.b('Formats')}
   ${c.teal('md')}     remediation fix-list, written for an AI agent to apply to the
          source template (AEM XDP and similar)
 
-${c.dim('Thresholds live in pairs.json — globally under "defaults", per pair under "thresholds".')}
+${c.dim('pairs.json names the file mappings, and may exclude pages per pair with "skipPages".')}
 `,
   )
-  .action(async (opts, cmd) => {
+  .action(async (golden, candidateArg, pairsArg, reportsArg, opts, cmd) => {
     await run(() => {
       const { config, source } = loadConfigFor();
       const cmp = config.compare ?? {};
       const paths = config.paths ?? {};
       const src = (flag: string) => cmd.getOptionValueSource(flag);
 
-      const reference = pick(src('reference'), opts.reference, paths.reference);
-      const candidate = pick(src('candidate'), opts.candidate, paths.candidate);
-      const pairsFile = pick(src('pairs'), opts.pairs, paths.pairs);
-      const report = pick(src('report'), opts.report, paths.report);
+      // Precedence: an explicit flag, then the positional, then the config file.
+      // A positional is the short form of the flag, so it must not beat one that
+      // was actually typed.
+      const reference = pick(src('reference'), opts.reference, golden ?? paths.reference);
+      const candidate = pick(src('candidate'), opts.candidate, candidateArg ?? paths.candidate);
+      const pairsFile = pick(src('pairs'), opts.pairs, pairsArg ?? paths.pairs);
+      const report = pick(src('report'), opts.report, reportsArg ?? paths.report);
 
       const missing = (
         [
-          ['--reference', reference, 'paths.reference'],
-          ['--candidate', candidate, 'paths.candidate'],
-          ['--pairs', pairsFile, 'paths.pairs'],
-          ['--report', report, 'paths.report'],
+          ['golden', reference, 'paths.reference'],
+          ['candidate', candidate, 'paths.candidate'],
+          ['pairs', pairsFile, 'paths.pairs'],
+          ['reports', report, 'paths.report'],
         ] as const
       ).filter(([, value]) => !value);
       if (missing.length) {
         throw new ToolError(
-          `Missing required path(s): ${missing.map(([flag]) => flag).join(', ')}`,
-          `Pass the flag, or set ${missing.map(([, , key]) => `"${key}"`).join(' / ')} under "paths" in ${CONFIG_FILENAME}.`,
+          `Missing required path(s): ${missing.map(([name]) => name).join(', ')}`,
+          'Usage: pdfsuite compare <golden> <candidate> <pairs.json> <reports>\n' +
+            `  or pass the flags, or set ${missing.map(([, , key]) => `"${key}"`).join(' / ')} under "paths" in ${CONFIG_FILENAME}.`,
         );
       }
 

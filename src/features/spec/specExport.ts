@@ -1,6 +1,6 @@
 // Export helpers for spec-check results: JSON and a printable HTML report.
 
-import type { Box, ElementResult, SpecReport } from '../types/spec';
+import type { Box, ElementResult, SpecReport } from './types';
 
 function download(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });

@@ -76,5 +76,5 @@ flowchart LR
 ## Reference
 
 - [SR-SPEC-CHECK](../../records/0102_SPEC-check.md) · [SR-CONSTANTS](../../records/0103_CONSTANTS.md)
-- [`src/services/specCheck.ts`](../../src/services/specCheck.ts) · [`src/services/specExport.ts`](../../src/services/specExport.ts)
+- [`src/features/spec/specCheck.ts`](../../src/features/spec/specCheck.ts) · [`src/features/spec/specExport.ts`](../../src/features/spec/specExport.ts)
 - [`tools/samples/excel-spec-hierarchical/README.md`](../../tools/samples/excel-spec-hierarchical/README.md) — expected results

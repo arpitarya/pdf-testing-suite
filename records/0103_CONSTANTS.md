@@ -96,7 +96,7 @@ different places.
 
 ### Reference (required)
 
-- [`src/services/specCheck.ts`](../src/services/specCheck.ts) `DEFAULT_TOL`, `DEFAULT_ANCHOR_WITHIN` · [`src/services/pdfCompare.ts`](../src/services/pdfCompare.ts) `BASE_SCALE`, `MAX_PAGE_WIDTH` · [`src/services/changes.ts`](../src/services/changes.ts) `summaryPageDiffers` · [`cli/src/core/pairs.ts`](../cli/src/core/pairs.ts) `DEFAULT_THRESHOLDS`
+- [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) `DEFAULT_TOL`, `DEFAULT_ANCHOR_WITHIN` · [`src/services/pdfCompare.ts`](../src/services/pdfCompare.ts) `BASE_SCALE`, `MAX_PAGE_WIDTH` · [`src/services/changes.ts`](../src/services/changes.ts) `summaryPageDiffers` · [`cli/src/core/pairs.ts`](../cli/src/core/pairs.ts) `DEFAULT_THRESHOLDS`
 
 ### Veto condition
 
@@ -113,4 +113,4 @@ product.
 
 **Code**
 
-- [`src/services/specCheck.ts`](../src/services/specCheck.ts) · [`src/services/pdfCompare.ts`](../src/services/pdfCompare.ts) · [`src/services/changes.ts`](../src/services/changes.ts) · [`src/services/exportReport.ts`](../src/services/exportReport.ts) · [`src/App.tsx`](../src/App.tsx) · [`cli/src/core/pairs.ts`](../cli/src/core/pairs.ts)
+- [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) · [`src/services/pdfCompare.ts`](../src/services/pdfCompare.ts) · [`src/services/changes.ts`](../src/services/changes.ts) · [`src/services/exportReport.ts`](../src/services/exportReport.ts) · [`src/App.tsx`](../src/App.tsx) · [`cli/src/core/pairs.ts`](../cli/src/core/pairs.ts)

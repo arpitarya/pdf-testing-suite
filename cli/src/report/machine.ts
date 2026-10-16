@@ -12,7 +12,7 @@ export function writeJsonReport(results: PairResult[], ctx: RunContext, outDir: 
     generatedAt: ctx.generatedAt.toISOString(),
     referenceDir: ctx.referenceDir,
     candidateDir: ctx.candidateDir,
-    defaults: ctx.defaults,
+    verdict: 'a page fails if it differs at all',
     overall: results.every((r) => r.pass) ? 'PASS' : 'FAIL',
     pairCount: results.length,
     passCount: results.filter((r) => r.pass).length,
@@ -21,7 +21,6 @@ export function writeJsonReport(results: PairResult[], ctx: RunContext, outDir: 
       name: r.pair.name,
       reference: r.pair.referenceRel,
       candidate: r.pair.candidateRel,
-      thresholds: r.pair.thresholds,
       skipPages: r.pair.skipPages,
       verdict: r.error ? 'ERROR' : r.pass ? 'PASS' : 'FAIL',
       error: r.error ?? null,
@@ -34,7 +33,7 @@ export function writeJsonReport(results: PairResult[], ctx: RunContext, outDir: 
         contentMatch: v.contentMatch,
         pixelRatio: v.pixelRatio,
         maxOffsetInches: Number(v.maxOffsetIn.toFixed(3)),
-        breaches: v.breaches,
+        differences: v.differences,
       })),
     })),
   };
@@ -50,7 +49,7 @@ const csvEscape = (s: string) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')
 export function writeCsvReport(results: PairResult[], outDir: string): string {
   const header = [
     'PairId', 'PairName', 'Reference', 'Candidate', 'Page',
-    'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Verdict', 'Breaches',
+    'ContentMatch%', 'PixelsDifferent%', 'MaxOffsetInches', 'Verdict', 'Differences',
   ];
   const rows: string[][] = [];
 
@@ -66,7 +65,7 @@ export function writeCsvReport(results: PairResult[], outDir: string): string {
         (v.pixelRatio * 100).toFixed(2),
         v.maxOffsetIn.toFixed(3),
         v.skipped ? 'SKIPPED' : v.missing ? 'MISSING' : v.pass ? 'PASS' : 'FAIL',
-        csvEscape(v.breaches.join('; ')),
+        csvEscape(v.differences.join("; ")),
       ]);
     }
   }
@@ -129,14 +128,14 @@ export function writeJUnitReport(results: PairResult[], ctx: RunContext, outDir:
             `Candidate: ${r.pair.candidateRel}`,
             `Page:      ${v.page}`,
             '',
-            `Content match:    ${(v.contentMatch * 100).toFixed(2)}%  (threshold ≥ ${r.pair.thresholds.contentPct}%)`,
-            `Pixels different: ${(v.pixelRatio * 100).toFixed(2)}%  (threshold ≤ ${r.pair.thresholds.pixelPct}%)`,
-            `Max offset:       ${v.maxOffsetIn.toFixed(3)}"  (threshold ≤ ${r.pair.thresholds.offsetIn}")`,
+            `Content match:    ${(v.contentMatch * 100).toFixed(2)}%`,
+            `Pixels different: ${(v.pixelRatio * 100).toFixed(2)}%`,
+            `Max offset:       ${v.maxOffsetIn.toFixed(3)}"`,
             '',
-            `Breached: ${v.breaches.join(', ')}`,
+            `Differences: ${v.differences.join(', ')}`,
           ].join('\n');
 
-          return `${open}>\n      <failure message="${xmlEscape(v.breaches.join(', '))}" type="ThresholdBreach">${xmlEscape(detail)}</failure>\n    </testcase>`;
+          return `${open}>\n      <failure message="${xmlEscape(v.differences.join(', '))}" type="PageDiffers">${xmlEscape(detail)}</failure>\n    </testcase>`;
         })
         .join('\n');
 
@@ -211,7 +210,6 @@ export function writeMarkdownReport(results: PairResult[], ctx: RunContext, outD
           pageCountB: r.summary.pageCountB,
           generatedAt: ctx.generatedAt.toISOString(),
         },
-        r.pair.thresholds,
         r.pageCache,
       );
       // The shared preamble is stated once at the top of the batch file.

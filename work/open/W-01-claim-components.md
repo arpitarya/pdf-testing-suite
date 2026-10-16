@@ -22,7 +22,7 @@ Record (`0101`+) that states the decisions behind that component.
 
 | DoD | what | state |
 |---|---|---|
-| 1 · app | records for `src/` (and `index.html`, `vite.config.ts`, `tsconfig*`, `package*.json`, `flag.env`), split where decisions differ (e.g. feature flags, annotations, ignore-difference). **Spec paths done 2026-10-16:** SR-SPEC-INTAKE, SR-SPEC-CHECK, SR-CONSTANTS | ⏳ |
+| 1 · app | records for `src/` (and `index.html`, `vite.config.ts`, `tsconfig*`, `package*.json`, `flag.env`), split where decisions differ (e.g. feature flags, annotations, ignore-difference). **Spec paths done 2026-10-16:** SR-SPEC-INTAKE, SR-SPEC-CHECK, SR-CONSTANTS — moved to the sealed `src/features/spec/` by `main`'s spec separation; still unclaimed there: `sheetRead.ts`, `sheetSpec.ts` (likely SR-SPEC-INTAKE), `engine.ts`, `pdfjs.ts`, `index.ts`, `spec.css`, `README.md`. Also new on `main`: `pagePairs.ts`, `PagePairing.tsx`, `regionStore.ts`, `DataRegionLayer.tsx` | ⏳ |
 | 2 · CLIs | a record for `cli/`; `cli-py/` was removed by W-03 on 2026-10-16 (SR-STACK-TYPESCRIPT) | ⏳ |
 | 3 · static | records for `public/` and `tools/` (`public/samples/spec-sample.*` and `tools/samples/excel-spec-hierarchical/` done 2026-10-16) | ⏳ |
 | 4 · docs | `README.md`, `spec-standard.md` (done: SR-SPEC-INTAKE), `comparison.md`, `presentation-script.md`, `docs/ARCHITECTURE.md`, `docs/architecture/` owned by the record they describe, or a docs record | ⏳ |

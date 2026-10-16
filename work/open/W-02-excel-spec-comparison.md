@@ -95,5 +95,5 @@ flowchart LR
 
 - [`tools/samples/excel-spec-hierarchical/`](../../tools/samples/excel-spec-hierarchical/README.md) — the legacy-layout fixture: a fictional 4-page landscape report with images, a vector graph, an image graph, tables and text; a matching PDF and a PDF with 12 known deviations
 - [SR-SPEC-INTAKE](../../records/0101_SPEC-intake.md) · [SR-CONSTANTS](../../records/0103_CONSTANTS.md) · [`work/proposals/excel-spec-comparison.md`](../proposals/excel-spec-comparison.md)
-- [`spec-standard.md`](../../spec-standard.md) · [`src/types/spec.ts`](../../src/types/spec.ts) · [`src/components/spec/SpecTestView.tsx`](../../src/components/spec/SpecTestView.tsx)
+- [`spec-standard.md`](../../spec-standard.md) · [`src/features/spec/types.ts`](../../src/features/spec/types.ts) · [`src/features/spec/SpecTestView.tsx`](../../src/features/spec/SpecTestView.tsx)
 - [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) §Spec driven comparison

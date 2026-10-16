@@ -32,7 +32,6 @@ export {
   escapeHtml,
   pct,
   inchStr,
-  type ExportThresholds,
 } from '../../../src/services/exportReport';
 
 export { buildMarkdownReport } from '../../../src/services/exportMarkdown';

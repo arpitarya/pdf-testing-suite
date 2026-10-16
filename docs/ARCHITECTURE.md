@@ -306,7 +306,30 @@ flowchart TB
 
 Code: `src/components/compare/CompareReport.tsx` · [`src/services/exportReport.ts`](../src/services/exportReport.ts)
 
-> **Watch.** The verdict uses fixed limits. The README's adjustable thresholds (content ≥ %, pixels ≤ %, offset ≤ px) are not in the code.
+> **Verdict.** Fixed, not adjustable: a page fails if it differs at all.
+
+## Page pairing
+
+- **The unit of comparison is a pair, not a page number.** Page 5 against page 5 is only right while both documents hold the same pages in the same order; one inserted or dropped page makes every later comparison meaningless.
+- **`pairs[]` is the navigation sequence** and `currentPage` indexes into it. It defaults to the straight 1:1 list, so nothing changes until someone pairs the pages.
+- **Pairing is done by hand, and nothing is inferred.** "Pair pages" opens a list of rows; clicking either side opens that PDF in a page picker, scrollable, with a size control. "No matching page" marks a page added or removed. Done applies it; the button then reads "Revert to page by page comparison".
+- **An automatic aligner exists in `pagePairs.ts` and is deliberately unwired** — a suggestion that is subtly wrong is worse than no suggestion in a tool whose job is to be believed. It is kept, tested, and tree-shaken out of the build.
+- **The editor warns rather than prevents:** a page used in two pairs is compared twice, and says so.
+
+```mermaid
+flowchart TB
+  D["Two PDFs loaded"] --> SEQ[("pairs[] = sequentialPairs<br/>1:1, the actual page order")]
+  SEQ --> CP
+  BTN["⇄ Pair pages"] --> ED["Row editor<br/>golden cell ↔ tested cell"]
+  ED -->|"click a cell"| PK["Page picker<br/>scroll · size control · 'No matching page'"]
+  PK --> ED
+  ED -->|"Done"| SET["setPairs — clears pageCache and summary"]
+  SET --> CP["comparePage(pageIndexA, pageIndexB)"]
+  CP --> V["Side by side · Overlapping · Report"]
+  REV["Revert to page by page comparison"] --> SEQ
+```
+
+Code: [`src/services/pagePairs.ts`](../src/services/pagePairs.ts) · `src/components/compare/PagePairing.tsx` · `src/store/compareStore.ts`
 
 ## Export menu and Import ZIP
 
@@ -341,7 +364,17 @@ Code: `ExportMenu.tsx` · `ImportBundleButton.tsx` · [`src/services/exportZip.t
 
 ## Spec driven comparison
 
+> **Sealed feature.** Everything below lives in `src/features/spec/` and shares no file
+> with the rest of the app, because it is developed on a second machine that cannot push.
+> Work flows one way — this repository out, a zip in — so **the copy of that folder here
+> is a stale mirror; the live one is on the other machine.** The app imports `index.ts`;
+> the CLI imports `engine.ts`. See
+> [`src/features/spec/README.md`](../src/features/spec/README.md),
+> `sh scripts/check-boundary.sh` and `sh scripts/update-from-zip.sh`.
+
 - **No golden PDF:** a JSON spec lists each page's expected elements in inches, points or millimetres from the top-left ([`spec-standard.md`](../spec-standard.md)).
+- **A spec workbook is read in the app.** An `.xlsx`/`.csv` is parsed in the browser and each sheet converted to a one-page spec; the reader pairs **a sheet** with **a PDF page** from two lists.
+- **The conversion reports what it could not do** — a colour, a conditional rule, a wording cell that is all merge fields, an element with no measurement. Nothing is guessed.
 - **Each element is checked on its own,** with expected-vs-actual values and a box on the page.
 - **"One page" mode checks one spec page against any PDF page** — for single-sheet specs that always say `"page": 1`.
 
@@ -349,10 +382,13 @@ Code: `ExportMenu.tsx` · `ImportBundleButton.tsx` · [`src/services/exportZip.t
 flowchart TB
   PDF["Generated PDF"] --> LP["loadPdfFile → loadPdf"]
   SJ["Spec .json"] --> LS["loadSpecFile"]
-  XL[".csv / .xlsx"] -->|"rejected"| MSG["message: convert with<br/>tools/spec-from-excel.py"]
+  XL[".xlsx / .csv"] --> RW["readSheetFile<br/>JSZip + DOMParser → cell grids"]
+  RW --> PICK["pick a sheet"]
+  PICK --> STS["sheetToSpec<br/>label vocabulary, not column position"]
+  STS --> NOTES["conversion notes<br/>skipped · unconvertible · conditional"]
   LS --> VS["validateSpec<br/>non-empty pages · numeric page · elements array"]
-  LP & VS --> SS[("specStore")]
-  MODE["Mode: All pages · or One page<br/>targetSpecPage → targetPdfPage"] --> SS
+  LP & VS & STS --> SS[("specStore")]
+  MODE["Mode: All pages · or One page<br/>a sheet → a PDF page"] --> SS
   SS -->|"run()"| RS["runSpec(pdf, spec, options)"]
   RS --> G
   subgraph PERPAGE["for each selected spec page"]
@@ -376,7 +412,7 @@ flowchart TB
 
 [Open as SVG](architecture/10-spec-driven-comparison.svg)
 
-Code: `src/components/spec/SpecTestView.tsx` · `src/store/specStore.ts` · [`src/services/specCheck.ts`](../src/services/specCheck.ts) · `src/services/specExport.ts`
+Code, all under [`src/features/spec/`](../src/features/spec/README.md): `index.ts` · `engine.ts` · `SpecTestView.tsx` · `specStore.ts` · `specCheck.ts` · `specExport.ts` · `sheetRead.ts` · `sheetSpec.ts` · `pdfjs.ts` · `types.ts` · `spec.css`
 
 > **Watch.** Default tolerances are inch values applied in whatever unit the spec uses. The HTML export inserts `units` unescaped.
 
@@ -515,13 +551,14 @@ Code: [`cli/src/commands/generate.ts`](../cli/src/commands/generate.ts) · `cli/
 
 ## `pdfsuite compare`
 
-- **`pairs.json` maps each golden file to its candidate,** with per-pair thresholds and pages to skip. An unresolved pair stops the run before any compare.
-- **Same `comparePage` as the app;** each page is then judged against `pairs.json` thresholds — not the app's fixed rule (see [Verdict rules](#verdict-rules-app-vs-cli)).
+- **Published to npm as `pdfsuite`.** `npm i -g pdfsuite`, then `pdfsuite compare <golden> <candidate> <pairs.json> <reports>`. The flags still work and override a positional.
+- **`pairs.json` maps each golden file to its candidate,** and may skip pages. An unresolved pair stops the run before any compare.
+- **Same engine *and* same verdict as the app** — `summaryPageDiffers` decides both, so the two cannot disagree (see [Verdict rules](#verdict-rules-app-vs-cli)).
 - **`--format` picks the reports.** JUnit has one testsuite per pair id, so Jenkins keeps per-pair history.
 
 ```mermaid
 flowchart TB
-  IN["pdfsuite compare<br/>-r golden dir · -c candidate dir · -P pairs.json · -o report dir"] --> LP["loadPairs<br/>defaults + per-pair thresholds · skipPages<br/>relative paths only"]
+  IN["pdfsuite compare<br/>golden · candidate · pairs.json · reports<br/>positional, or the same four flags"] --> LP["loadPairs<br/>skipPages · relative paths only<br/>old threshold keys ignored, with a note"]
   LP --> TBL["print the pairing table"]
   TBL --> PB{"any pair unresolved?"}
   PB -->|yes| X2A["ToolError → exit 2"]
@@ -529,7 +566,7 @@ flowchart TB
   subgraph LOOP["for each pair, in order"]
     L1["loadPdf(fileFromPath) · A and B"] --> L2["comparePage for each page<br/>same engine as the app"]
     L2 --> L3["drop RGBA buffers"]
-    L3 --> L4["judge(page, thresholds)<br/>content ≥ 99% · pixels ≤ 2% · offset ≤ 0.03 in<br/>skipped pages always pass"]
+    L3 --> L4["judge(page)<br/>the app's summaryPageDiffers<br/>skipped pages always pass"]
   end
   L4 --> FMT{"--format<br/>default html,json,csv,junit"}
   FMT --> H["HTML · reuses reportPageDetail"]
@@ -566,16 +603,22 @@ flowchart LR
 
 ## Verdict rules: app vs CLI
 
-**Same engine, different judge.** The same PDF pair can FAIL in the app and PASS in CI.
+**Same engine, same judge.** `summaryPageDiffers` decides both, so a pair cannot FAIL in
+the app and PASS in CI.
 
-| check | app — `summaryPageDiffers` | CLI — `judge`, `pairs.json` defaults |
-|---|---|---|
-| content match | fails under 99.99% | **fails under 99%** |
-| pixels changed | fails over 0.2% | **fails over 2%** |
-| max text offset | fails over 2 px (≈0.014 in on Letter) | **fails over 0.03 in** |
-| missing page | fails | fails |
-| tunable | no | per pair, plus `skipPages` |
-| restyled text | ignored | ignored |
+| check | app and CLI — `summaryPageDiffers` |
+|---|---|
+| content match | fails under 99.99% |
+| pixels changed | fails over 0.2% |
+| max text offset | fails over 2 px (≈0.014 in on Letter) |
+| missing page | fails |
+| tunable | **no** — the CLI's thresholds were removed; `skipPages` exempts a whole page, visibly |
+| restyled text | ignored |
+
+The CLI kept adjustable tolerances for a while after the app dropped them, which meant the
+two disagreed about the same pair — and because esbuild strips types without checking them,
+the drift went unnoticed until the HTML report crashed. `npm run build` in `cli/` now runs
+`tsc --noEmit` first.
 
 ---
 

@@ -92,6 +92,33 @@ one and the hooks that enforce it — [SR-WORK-BLOCKERS](records/0056_WORK-block
 One archive, [`archive/`](archive/README.md), at the repo root. What may be
 named, what may never be cited — [SR-WORK-ARCHIVE](records/0057_WORK-archive.md).
 
+## The sealed feature boundary
+
+`src/features/spec/` is developed on a second machine that can read the real
+spec workbooks, cannot push, and cannot send files out. Work goes **one way**:
+this machine pushes to GitHub, that machine downloads a zip and refreshes
+everything *except* that folder with `scripts/update-from-zip.sh`.
+
+**The copy of `src/features/spec/` in this repository is a stale mirror.** The
+live version is on the other machine and does not come back. It is kept here so
+the app builds and the tab runs. **Do not edit it from this machine** — an edit
+here is work the other machine will never see.
+
+The folder therefore shares **no file** with the rest of the repository, and the
+rest of the repository reaches it only through `index.ts` (app) or `engine.ts`
+(CLI). The contract, the dependency allow-list, the CSS prefix rule and both
+machines' procedures are stated once in
+[`src/features/spec/README.md`](src/features/spec/README.md).
+
+Before changing anything under `src/` or `cli/`:
+
+```bash
+sh scripts/check-boundary.sh
+```
+
+If a task seems to need both sides, that is the finding — raise it rather than
+editing across.
+
 ## Hard-won build knowledge
 
 Dated lessons live in [`work/LESSONS.md`](work/LESSONS.md), newest first.
@@ -108,7 +135,8 @@ work/        THE SHARED MEMORY between sessions — start at work/README.md
 records/     THE STANDING RECORDS — the register, the template, the laws, the WORK records
 docs/        WHAT THE PROJECT IS — the glossary, the architecture diagrams
 archive/     THE ONE ARCHIVE — everything retired, mirroring the live tree
-scripts/     the commit guard and the inbox check
+scripts/     the commit guard, the inbox check, the boundary check, the zip refresh
 .claude/     hooks and their wiring
 src/ cli/ public/ tools/   the product — owned by W-01 until each has a record
+src/features/spec/   A SEALED FEATURE — its own contract, see its README.md
 ```

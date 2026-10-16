@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import type { PdfSpec, SpecReport } from '../types/spec';
-import { loadPdf, runSpec, validateSpec } from '../services/specCheck';
+import type { PdfSpec, SpecReport } from './types';
+import { loadPdf, runSpec, validateSpec } from './specCheck';
+import type { Workbook } from './sheetRead';
+import { sheetToSpec, type ConversionNote } from './sheetSpec';
 
 interface SpecState {
   pdfDoc: PDFDocumentProxy | null;
@@ -14,6 +16,20 @@ interface SpecState {
   spec: PdfSpec | null;
   specName: string | null;
   errorSpec: string | null;
+
+  /**
+   * An uploaded spec workbook, when the spec came from a sheet rather than from
+   * JSON. The sheets are kept as read so switching tabs is instant and the
+   * conversion can be re-run without touching the file again.
+   */
+  workbook: Workbook | null;
+  loadingWorkbook: boolean;
+  /** The sheet currently converted into `spec`. */
+  activeSheet: string | null;
+  /** What the conversion could not do, for the sheet in `activeSheet`. */
+  sheetNotes: ConversionNote[];
+  /** Elements converted / blocks skipped, for the sheet in `activeSheet`. */
+  sheetStats: { converted: number; skipped: number } | null;
 
   report: SpecReport | null;
   running: boolean;
@@ -42,6 +58,8 @@ interface SpecState {
 
   loadPdfFile: (file: File) => Promise<void>;
   loadSpecFile: (file: File) => Promise<void>;
+  selectSheet: (name: string) => void;
+  clearWorkbook: () => void;
   loadSpecText: (text: string, name: string) => void;
   clearPdf: () => void;
   clearSpec: () => void;
@@ -60,6 +78,12 @@ export const useSpecStore = create<SpecState>((set, get) => ({
   spec: null,
   specName: null,
   errorSpec: null,
+
+  workbook: null,
+  loadingWorkbook: false,
+  activeSheet: null,
+  sheetNotes: [],
+  sheetStats: null,
 
   report: null,
   running: false,
@@ -96,28 +120,85 @@ export const useSpecStore = create<SpecState>((set, get) => ({
   },
 
   async loadSpecFile(file) {
+    // A workbook or a sheet is read and converted here; JSON goes straight in.
+    if (/\.(csv|xlsx|xlsm)$/i.test(file.name)) {
+      set({ loadingWorkbook: true, errorSpec: null });
+      try {
+        const { readSheetFile } = await import('./sheetRead');
+        const wb = await readSheetFile(file);
+        set({
+          workbook: wb,
+          loadingWorkbook: false,
+          spec: null,
+          specName: null,
+          activeSheet: null,
+          sheetNotes: [],
+          sheetStats: null,
+          report: null,
+          currentPage: 0,
+          // A sheet describes one page, pointed at one page of the PDF.
+          mode: 'single',
+          targetSpecPage: 1,
+        });
+        // One sheet is no choice at all, so make it.
+        if (wb.sheets.length === 1) get().selectSheet(wb.sheets[0].name);
+      } catch (err) {
+        set({
+          loadingWorkbook: false,
+          errorSpec: err instanceof Error ? err.message : 'Failed to read the workbook',
+        });
+      }
+      return;
+    }
+
     try {
       const text = await file.text();
-      // The checker consumes the JSON form. A raw sheet has to go through
-      // tools/spec-from-excel.py first, so say that rather than failing on a
-      // parse error the reader cannot act on.
-      if (/\.(csv|xlsx?)$/i.test(file.name)) {
-        set({
-          errorSpec:
-            'Convert the sheet to JSON first with tools/spec-from-excel.py, then drop the .json here.',
-        });
-        return;
-      }
       get().loadSpecText(text, file.name);
     } catch (err) {
       set({ errorSpec: err instanceof Error ? err.message : 'Failed to read spec file' });
     }
   },
 
+  selectSheet(name) {
+    const wb = get().workbook;
+    const grid = wb?.sheets.find((sh) => sh.name === name);
+    if (!grid) return;
+    const out = sheetToSpec(grid);
+    set({
+      spec: out.spec,
+      specName: `${wb!.name} · ${name}`,
+      activeSheet: name,
+      sheetNotes: out.notes,
+      sheetStats: { converted: out.converted, skipped: out.skipped },
+      errorSpec: null,
+      report: null,
+      currentPage: 0,
+      mode: 'single',
+      targetSpecPage: 1,
+    });
+  },
+
+  clearWorkbook() {
+    set({
+      workbook: null,
+      activeSheet: null,
+      sheetNotes: [],
+      sheetStats: null,
+      spec: null,
+      specName: null,
+      errorSpec: null,
+      report: null,
+      currentPage: 0,
+    });
+  },
+
   loadSpecText(text, name) {
     try {
       const parsed = validateSpec(JSON.parse(text));
-      set({ spec: parsed, specName: name, errorSpec: null, report: null, currentPage: 0, targetSpecPage: 1 });
+      set({
+        spec: parsed, specName: name, errorSpec: null, report: null, currentPage: 0, targetSpecPage: 1,
+        workbook: null, activeSheet: null, sheetNotes: [], sheetStats: null,
+      });
     } catch (err) {
       set({ errorSpec: err instanceof Error ? err.message : 'Invalid spec JSON' });
     }
@@ -127,7 +208,10 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     set({ pdfDoc: null, pdfName: null, pdfPageCount: 0, errorPdf: null, report: null, currentPage: 0 });
   },
   clearSpec() {
-    set({ spec: null, specName: null, errorSpec: null, report: null, currentPage: 0 });
+    set({
+      spec: null, specName: null, errorSpec: null, report: null, currentPage: 0,
+      workbook: null, activeSheet: null, sheetNotes: [], sheetStats: null,
+    });
   },
 
   async run() {

@@ -12,6 +12,12 @@ export interface TextStyle {
 /** A single extracted text run with its bounding box in target-box pixel space. */
 export interface TextItem {
   str: string; // text content of the run (never empty)
+  /**
+   * What this box is. Images ride the same structure so every consumer — the
+   * page overlays, the change list, the heat map, the report — handles them
+   * without a second code path. Absent means text.
+   */
+  kind?: 'image';
   x: number;   // left edge in px, top-left origin
   y: number;   // top edge in px, top-left origin (NOT baseline)
   w: number;   // width in px
@@ -79,6 +85,18 @@ export interface ItemMatch {
   onlyB: TextItem[];
   /** Same words, different type — see RestyledSpan. */
   restyled: RestyledSpan[];
+  /**
+   * Images, matched separately.
+   *
+   * They are kept out of `matched`/`onlyA`/`onlyB` because those feed the text
+   * metrics — reading order, the word diff, the content-match percentage — and
+   * an image has no text to contribute. It still becomes a change.
+   */
+  images: {
+    matched: MatchedPair[];
+    onlyA: TextItem[];
+    onlyB: TextItem[];
+  };
 }
 
 /** Output of a pixelmatch comparison. */

@@ -7,7 +7,7 @@ description: "A hand-maintained Excel workbook (or a spec JSON) is uploaded, val
 status: accepted
 date: 2026-10-16
 feature: spec intake — Excel or JSON in, validated spec JSON out
-owns: [spec-standard.md, src/types/spec.ts, tools/samples/excel-spec-hierarchical/]
+owns: [spec-standard.md, src/features/spec/types.ts, tools/samples/excel-spec-hierarchical/]
 laws: [L0]
 timestamp: 2026-10-16T11:30:00+05:30
 content_sha: ""
@@ -160,7 +160,7 @@ reproduces the hand-written shape.
 - **Deferred by Arpit (2026-10-16), in the backlog:** stale-pair detection (B-008),
   Draft/Ready status per page sheet (B-009), version diff between two spec JSONs (B-010).
 - **Owned:** `spec-standard.md` (the JSON format and template v2, rewritten by W-02),
-  `src/types/spec.ts` (the spec JSON type), and the fictional fixture.
+  `src/features/spec/types.ts` (the spec JSON type), and the fictional fixture.
 - **Enforced today:** nothing; decision 16 becomes a gate when W-02's fixtures land.
 
 ### Alternatives considered
@@ -176,7 +176,7 @@ reproduces the hand-written shape.
 
 ### Reference (required)
 
-- [`src/types/spec.ts`](../src/types/spec.ts) — today's spec JSON type
+- [`src/features/spec/types.ts`](../src/features/spec/types.ts) — today's spec JSON type
 - [`spec-standard.md`](../spec-standard.md) — today's JSON format; §7 is the old fixed-column plan this replaces
 - [`tools/samples/excel-spec-hierarchical/README.md`](../tools/samples/excel-spec-hierarchical/README.md) — the legacy-layout fixture and its expected results
 - [`work/proposals/excel-spec-comparison.md`](../work/proposals/excel-spec-comparison.md) — the research and the observed sheet conventions
@@ -196,7 +196,7 @@ language.
 
 **Code**
 
-- [`src/types/spec.ts`](../src/types/spec.ts) · [`src/store/specStore.ts`](../src/store/specStore.ts) · [`src/services/specCheck.ts`](../src/services/specCheck.ts) `validateSpec`
+- [`src/features/spec/types.ts`](../src/features/spec/types.ts) · [`src/features/spec/specStore.ts`](../src/features/spec/specStore.ts) · [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) `validateSpec`
 
 **Project docs**
 
