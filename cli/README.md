@@ -12,18 +12,123 @@ the CLI and the app can never disagree about the same pair.
 > diagram, an annotated walkthrough with real terminal output, and every flag explained.
 > Open the file directly in a browser.
 
-## Setup
+## Install
+
+Three ways in, depending on what the machine can reach.
+
+### 1. From npm
+
+```bash
+npm install -g pdfsuite
+pdfsuite compare ./golden ./candidates ./pairs.json ./reports
+```
+
+Or without a global install, per project:
+
+```bash
+npm install --save-dev pdfsuite
+npx pdfsuite compare ./golden ./candidates ./pairs.json ./reports
+```
+
+The four paths are positional, in that order: **golden**, **candidate**, **pairs.json**,
+**reports out**. Every flag below still works and overrides a positional, so existing
+scripts and CI jobs keep running unchanged.
+
+### 2. From a tarball
+
+```bash
+npm pack                       # in cli/ — writes pdfsuite-1.0.0.tgz
+npm install -g ./pdfsuite-1.0.0.tgz
+```
+
+The tarball is four files and about 700 KB. It still needs the registry (or a warm npm
+cache) for `@napi-rs/canvas`, so it is not an offline install.
+
+### 3. Copy a folder
+
+Two shapes, and the trade-off is **network versus platform**:
+
+| | size | platform | network |
+|---|---|---|---|
+| `--lean` | ~3.4 MB | **any** | one `npm install` on arrival |
+| sealed *(default)* | ~40 MB | **one** | never |
+
+Lean is the one to reach for — it goes to a Mac, a Linux box or Windows unchanged, and
+`npm install` picks the right compiled renderer wherever it lands:
+
+```bash
+sh scripts/make-portable.sh --lean   # in cli/ — builds .work/pdfsuite-portable-lean/
+```
+
+Then on the receiving machine, once:
+
+```bash
+cd pdfsuite-portable-lean && npm install
+```
+
+Its `package.json` is trimmed to the one runtime dependency, so that install fetches
+`@napi-rs/canvas` and nothing else — no build toolchain. After it, the folder is
+self-contained, and a copy of it *is* a sealed folder for that platform.
+
+Sealed is for a machine that cannot reach a registry at all:
+
+```bash
+npm run portable                     # in cli/ — builds .work/pdfsuite-portable/
+```
+
+Copy that folder anywhere — a share, a USB stick, another machine — and run it:
+
+```bash
+node /path/to/pdfsuite-portable/dist/index.js compare ./golden ./candidates ./pairs.json ./reports
+```
+
+No `npm install`, no global binary, no network. Node 20+ is the only requirement. The paths
+you pass are relative to **your** working directory, not to the folder.
+
+The folder carries its own **`START-HERE.html`** — open it in a browser. It explains the
+whole thing for someone who has never seen the tool, and builds both the command and a
+`pairs.json` from fields you fill in. It is self-contained (system fonts, no external
+requests), so it works on a machine with no network, and it is stamped with the platform the
+folder was built for. `RUN-ME.txt` says the same in plain text for a machine with no browser.
+
+A *sealed* folder carries one compiled canvas binary, so it runs on **one platform**: the
+one it was built for. `--target` builds for another, which is how a Mac folder gets
+assembled on Windows:
+
+```bash
+sh scripts/make-portable.sh --target darwin-arm64    # macOS, Apple Silicon
+sh scripts/make-portable.sh --target darwin-x64      # macOS, Intel
+sh scripts/make-portable.sh --target linux-x64-gnu   # Linux and most CI images
+sh scripts/make-portable.sh --target win32-x64-msvc  # Windows
+```
+
+That fetches the target's binary from npm at the version the local wrapper pins, so the
+*build* needs network even though the *result* does not. On the wrong platform the folder
+reports a missing `@napi-rs/canvas` binding rather than misbehaving. `--lean` and
+`--target` contradict each other and the script says so.
+
+### Why there is a native dependency
+
+`@napi-rs/canvas` renders the pages. It cannot be bundled into the JavaScript the way
+everything else is, because it is a compiled binary. Both the pixel diff and the report's
+page images come from it, so there is no smaller install that still produces a visual
+report.
+
+### From this checkout instead
 
 ```bash
 cd cli
 npm install
-npm run build          # bundles to dist/index.js
+npm run build          # typechecks, bundles to dist/index.js, copies the pdf.js worker
 npm link               # makes `pdfsuite` available as a command
 ```
 
-`npm link` registers the `pdfsuite` binary globally, pointing at this checkout — rebuilds
-take effect immediately, no re-linking. If you would rather not install anything globally,
-every `pdfsuite …` below also works as `node dist/index.js …`.
+`npm link` points the global binary at this checkout, so rebuilds take effect immediately.
+Everything below also works as `node dist/index.js …`.
+
+Publishing from here resolves `pdfjs-dist`, `pixelmatch` and `diff` from the **repository
+root's** `node_modules` at build time and bundles them, so `npm install` at the root has to
+have been run first.
 
 Check it:
 
@@ -32,6 +137,49 @@ pdfsuite            # lists the commands, a typical run, and the exit codes
 pdfsuite --help
 pdfsuite compare --help
 ```
+
+## On macOS
+
+Nothing special for the normal install — `npm install -g pdfsuite` resolves the Apple
+Silicon or Intel binary by itself:
+
+```bash
+npm install -g pdfsuite
+pdfsuite compare ./golden ./candidates ./pairs.json ./reports
+```
+
+From this checkout, the same as anywhere: `cd cli && npm install && npm run build`. The
+shell scripts are POSIX `sh` and need no adaptation.
+
+To hand a Mac a folder rather than an npm package, build a **lean** one anywhere —
+`sh scripts/make-portable.sh --lean` — copy it over, and run `npm install` inside it there.
+That needs no knowledge of which Mac it is.
+
+If the Mac cannot reach a registry either, build a sealed folder for it. `uname -m` on the
+Mac says which: `arm64` or `x86_64`.
+
+```bash
+sh scripts/make-portable.sh --target darwin-arm64   # or darwin-x64 on Intel
+```
+
+Copy the folder over, then
+
+```bash
+node /path/to/pdfsuite-portable-darwin-arm64/dist/index.js compare ./golden ./candidates ./pairs.json ./reports
+```
+
+macOS may quarantine a binary that arrived by download or share rather than through npm. If
+it refuses to load, clear the flag on the folder:
+
+```bash
+xattr -dr com.apple.quarantine /path/to/pdfsuite-portable-darwin-arm64
+```
+
+One caveat that applies to any platform change: page rendering is not bit-identical across
+operating systems, because a PDF that does not embed all its fonts falls back to the host's.
+Both sides of a comparison are rendered on the same machine, so a run is always
+self-consistent — but a pixel percentage from a Mac and one from Windows are not strictly
+comparable, so pick one platform for a baseline and stay on it.
 
 ## Quick start
 
@@ -52,6 +200,15 @@ Short flags keep it to one readable line:
 ```bash
 pdfsuite compare -r ./fixtures/golden -c ./.work/candidates -P ./fixtures/pairs.json -o ./.work/reports
 ```
+
+## What counts as a difference
+
+A page fails if **anything** changed: wording, pixels, or position. There is no tolerance to
+tune — the question a report answers is "did anything change?", and a knob that lets a real
+change be declared acceptable only hides it. A page present on one side only fails too.
+
+`--pixel-threshold` is not a tolerance despite the name: it is pixelmatch's colour
+sensitivity, how different two pixels must be before they count as different at all.
 
 ## Configuration
 
@@ -275,14 +432,12 @@ two*?" without waiting for a full run.
 
 ```json
 {
-  "defaults": { "contentPct": 99, "pixelPct": 2, "offsetIn": 0.03 },
   "pairs": [
     {
       "id": "invoice-standard",
       "name": "Invoice · standard layout",
       "reference": "invoice-original.pdf",
       "candidate": "invoice-standard.pdf",
-      "thresholds": { "pixelPct": 5 },
       "skipPages": [6]
     }
   ]
@@ -294,8 +449,10 @@ two*?" without waiting for a full run.
 - `id` is required and must be **stable**. It becomes the JUnit `<testsuite name>`, the
   report anchor, and the asset path. CI keys test history off the suite name, so renaming
   an id silently discards that pair's trend history.
-- `thresholds` merges over `defaults`, which merges over the built-in defaults.
-- `skipPages` is 1-based — for pages that always differ (generated dates, barcodes).
+- `skipPages` is 1-based — for pages that always differ (generated dates, barcodes). It is
+  the only way to exempt a page, and it exempts the whole page, visibly.
+- `defaults` and `thresholds` from an older file are **accepted and ignored**, and the run
+  prints a line saying so. There are no tolerances: a page fails if it differs at all.
 
 Every entry must resolve to files that exist. An unmatched entry is a **hard failure**, not
 a warning: a missing candidate means generation silently dropped a document, which is
@@ -305,8 +462,8 @@ exactly the regression worth catching.
 
 | Code | Meaning |
 |---|---|
-| `0` | every pair passed |
-| `1` | at least one pair breached its thresholds |
+| `0` | every pair passed — no page differed |
+| `1` | at least one pair differs |
 | `2` | tool error — bad args, unreachable API, unreadable PDF, unmatched pair, zero pairs resolved |
 
 `1` vs `2` is the distinction that lets a pipeline tell "the PDFs regressed" from "the job
@@ -319,8 +476,8 @@ Written to `--report`:
 - **`report.html`** — the full visual report, built from the app's own exporters: annotated
   A/B pages, the pixel-diff heatmap with layout/text colour coding, before→after labels,
   and a per-page change list. Open it, or Print → Save as PDF to share.
-- **`report.json`** — per-pair and per-page metrics, verdicts, and the specific thresholds
-  breached.
+- **`report.json`** — per-pair and per-page metrics, verdicts, and what differed on each
+  failing page.
 - **`report.csv`** — one row per pair × page.
 - **`junit.xml`** — one `<testsuite>` per pair, one `<testcase>` per page. Jenkins, GitLab
   and GitHub Actions render this natively, giving per-page pass/fail history and

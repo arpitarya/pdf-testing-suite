@@ -1,20 +1,15 @@
 {
   "$comment": [
     "Explicit pairing for `pdfsuite compare`.",
-    "`reference` resolves against --reference, `candidate` against --candidate.",
-    "Always relative — never absolute — so this file stays portable across machines",
+    "`reference` resolves against the golden directory, `candidate` against the candidate one.",
+    "Always relative - never absolute - so this file stays portable across machines",
     "and CI workspaces.",
     "`id` must be stable: it becomes the JUnit <testsuite name>, the asset folder name,",
     "and the report anchor. Jenkins keys test history off the suite name, so changing an",
-    "id silently discards that pair's trend history."
+    "id silently discards that pair's trend history.",
+    "There are no tolerances. A page fails if it differs at all; `skipPages` is the only",
+    "way to exempt one, and it exempts the whole page."
   ],
-
-  "defaults": {
-    "contentPct": 99,
-    "pixelPct": 2,
-    "offsetIn": 0.03
-  },
-
   "pairs": [
     {
       "id": "invoice-standard",
@@ -32,10 +27,7 @@
       "id": "statement-summary",
       "name": "Statement · monthly summary",
       "reference": "statement-original.pdf",
-      "candidate": "statement-summary.pdf",
-      "thresholds": {
-        "pixelPct": 5
-      }
+      "candidate": "statement-summary.pdf"
     }
   ]
 }

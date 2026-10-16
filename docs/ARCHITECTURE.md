@@ -309,7 +309,7 @@ flowchart TB
 
 Code: `src/components/compare/CompareReport.tsx` · [`src/services/exportReport.ts`](../src/services/exportReport.ts)
 
-> **Watch.** The verdict uses fixed limits. The README's adjustable thresholds (content ≥ %, pixels ≤ %, offset ≤ px) are not in the code.
+> **Verdict.** Fixed, not adjustable: a page fails if it differs at all.
 
 ## Export menu and Import ZIP
 
@@ -531,13 +531,14 @@ Code: [`cli/src/commands/generate.ts`](../cli/src/commands/generate.ts) · `cli/
 
 ## `pdfsuite compare`
 
-- **`pairs.json` maps each golden file to its candidate,** with per-pair thresholds and pages to skip. An unresolved pair stops the run before any compare.
-- **Same `comparePage` as the app;** each page is then judged against `pairs.json` thresholds — not the app's fixed rule (see [Verdict rules](#verdict-rules-app-vs-cli)).
+- **Published to npm as `pdfsuite`.** `npm i -g pdfsuite`, then `pdfsuite compare <golden> <candidate> <pairs.json> <reports>`. The flags still work and override a positional.
+- **`pairs.json` maps each golden file to its candidate,** and may skip pages. An unresolved pair stops the run before any compare.
+- **Same engine *and* same verdict as the app** — `summaryPageDiffers` decides both, so the two cannot disagree (see [Verdict rules](#verdict-rules-app-vs-cli)).
 - **`--format` picks the reports.** JUnit has one testsuite per pair id, so Jenkins keeps per-pair history.
 
 ```mermaid
 flowchart TB
-  IN["pdfsuite compare<br/>-r golden dir · -c candidate dir · -P pairs.json · -o report dir"] --> LP["loadPairs<br/>defaults + per-pair thresholds · skipPages<br/>relative paths only"]
+  IN["pdfsuite compare<br/>golden · candidate · pairs.json · reports<br/>positional, or the same four flags"] --> LP["loadPairs<br/>skipPages · relative paths only<br/>old threshold keys ignored, with a note"]
   LP --> TBL["print the pairing table"]
   TBL --> PB{"any pair unresolved?"}
   PB -->|yes| X2A["ToolError → exit 2"]
@@ -545,7 +546,7 @@ flowchart TB
   subgraph LOOP["for each pair, in order"]
     L1["loadPdf(fileFromPath) · A and B"] --> L2["comparePage for each page<br/>same engine as the app"]
     L2 --> L3["drop RGBA buffers"]
-    L3 --> L4["judge(page, thresholds)<br/>content ≥ 99% · pixels ≤ 2% · offset ≤ 0.03 in<br/>skipped pages always pass"]
+    L3 --> L4["judge(page)<br/>the app's summaryPageDiffers<br/>skipped pages always pass"]
   end
   L4 --> FMT{"--format<br/>default html,json,csv,junit"}
   FMT --> H["HTML · reuses reportPageDetail"]
@@ -606,16 +607,22 @@ Code: `cli-py/src/pdfsuite/cli.py` · `node.py` · `generate.py` · `compare.py`
 
 ## Verdict rules: app vs CLI
 
-**Same engine, different judge.** The same PDF pair can FAIL in the app and PASS in CI.
+**Same engine, same judge.** `summaryPageDiffers` decides both, so a pair cannot FAIL in
+the app and PASS in CI.
 
-| check | app — `summaryPageDiffers` | CLI — `judge`, `pairs.json` defaults |
-|---|---|---|
-| content match | fails under 99.99% | **fails under 99%** |
-| pixels changed | fails over 0.2% | **fails over 2%** |
-| max text offset | fails over 2 px (≈0.014 in on Letter) | **fails over 0.03 in** |
-| missing page | fails | fails |
-| tunable | no | per pair, plus `skipPages` |
-| restyled text | ignored | ignored |
+| check | app and CLI — `summaryPageDiffers` |
+|---|---|
+| content match | fails under 99.99% |
+| pixels changed | fails over 0.2% |
+| max text offset | fails over 2 px (≈0.014 in on Letter) |
+| missing page | fails |
+| tunable | **no** — the CLI's thresholds were removed; `skipPages` exempts a whole page, visibly |
+| restyled text | ignored |
+
+The CLI kept adjustable tolerances for a while after the app dropped them, which meant the
+two disagreed about the same pair — and because esbuild strips types without checking them,
+the drift went unnoticed until the HTML report crashed. `npm run build` in `cli/` now runs
+`tsc --noEmit` first.
 
 ---
 

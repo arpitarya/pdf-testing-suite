@@ -8,11 +8,12 @@ import {
   comparePage,
   fileFromPath,
   loadPdf,
+  summaryPageDiffers,
   type CompareSummary,
   type PageComparison,
 } from '../platform/engine.js';
 import { EXIT, ToolError } from '../core/exit.js';
-import { DEFAULT_THRESHOLDS, formatPairTable, loadPairs, type ResolvedPair } from '../core/pairs.js';
+import { formatPairTable, loadPairs, type ResolvedPair } from '../core/pairs.js';
 import { writeHtmlReport } from '../report/html.js';
 import {
   writeCsvReport,
@@ -33,7 +34,17 @@ export interface CompareOptions {
   failOn: 'any' | 'none';
 }
 
-/** Score one page against the pair's thresholds, naming every breach for the JUnit output. */
+/** Round-trip-safe percentage for a message. */
+const p2 = (v: number) => `${(v * 100).toFixed(2)}%`;
+
+/**
+ * A page fails if it differs at all.
+ *
+ * The verdict itself is the app's `summaryPageDiffers`, so the CLI and the app
+ * cannot disagree about the same pair — which is the whole reason this tool
+ * imports the engine instead of reimplementing it. What follows only puts the
+ * differences into words for the JUnit output.
+ */
 function judge(
   page: CompareSummary['pages'][number],
   pair: ResolvedPair,
@@ -41,35 +52,28 @@ function judge(
   const pageNo = page.pageIndex + 1;
   const maxOffsetIn = page.maxOffset / page.pxPerInch;
   const skipped = pair.skipPages.includes(pageNo);
+  const differs = summaryPageDiffers(page);
 
-  const breaches: string[] = [];
-  if (!skipped) {
+  const differences: string[] = [];
+  if (!skipped && differs) {
     if (page.missing) {
-      breaches.push('page missing on one side');
+      differences.push('page missing on one side');
     } else {
-      if (page.contentMatch * 100 < pair.thresholds.contentPct) {
-        breaches.push(
-          `content ${(page.contentMatch * 100).toFixed(2)}% < ${pair.thresholds.contentPct}%`,
-        );
-      }
-      if (page.pixelRatio * 100 > pair.thresholds.pixelPct) {
-        breaches.push(`pixels ${(page.pixelRatio * 100).toFixed(2)}% > ${pair.thresholds.pixelPct}%`);
-      }
-      if (maxOffsetIn > pair.thresholds.offsetIn) {
-        breaches.push(`offset ${maxOffsetIn.toFixed(3)}" > ${pair.thresholds.offsetIn}"`);
-      }
+      if (page.contentMatch < 1) differences.push(`content match ${p2(page.contentMatch)}`);
+      if (page.pixelRatio > 0) differences.push(`${p2(page.pixelRatio)} of pixels differ`);
+      if (maxOffsetIn > 0) differences.push(`text shifted up to ${maxOffsetIn.toFixed(3)}"`);
     }
   }
 
   return {
     page: pageNo,
-    pass: skipped || breaches.length === 0,
+    pass: skipped || !differs,
     skipped,
     missing: page.missing,
     contentMatch: page.contentMatch,
     pixelRatio: page.pixelRatio,
     maxOffsetIn,
-    breaches,
+    differences,
   };
 }
 
@@ -183,8 +187,6 @@ export async function runCompare(opts: CompareOptions): Promise<number> {
     generatedAt: new Date(),
     referenceDir: path.resolve(opts.reference),
     candidateDir: path.resolve(opts.candidate),
-    defaults: DEFAULT_THRESHOLDS,
-    thresholdsLabel: `content ≥ ${DEFAULT_THRESHOLDS.contentPct}% · pixels ≤ ${DEFAULT_THRESHOLDS.pixelPct}% · offset ≤ ${DEFAULT_THRESHOLDS.offsetIn}″`,
   };
 
   console.log('');
@@ -225,7 +227,7 @@ export async function runCompare(opts: CompareOptions): Promise<number> {
       r.error ??
       r.pageVerdicts
         .filter((v) => !v.pass)
-        .map((v) => `page ${v.page}: ${v.breaches.join(', ')}`)
+        .map((v) => `page ${v.page}: ${v.differences.join(", ")}`)
         .join(' · ');
     console.log(`  ✗ ${r.pair.id} — ${reason}`);
   }

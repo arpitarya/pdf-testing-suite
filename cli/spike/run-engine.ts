@@ -61,11 +61,7 @@ async function main() {
 
   console.log('\nR3 · building visual HTML (Image + canvas downscale path)…');
   const summary = { pages, pageCountA: a.numPages, pageCountB: b.numPages };
-  const detail = await reportPageDetail(summary, pageCache, {
-    contentPct: 99,
-    pixelPct: 2,
-    offsetIn: 0.03,
-  });
+  const detail = await reportPageDetail(summary, pageCache);
 
   const outDir = path.join(here, '../.work');
   fs.mkdirSync(outDir, { recursive: true });

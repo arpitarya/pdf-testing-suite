@@ -1,4 +1,4 @@
-import type { CompareSummary, ExportThresholds, PageComparison } from '../platform/engine.js';
+import type { CompareSummary, PageComparison } from '../platform/engine.js';
 import type { ResolvedPair } from '../core/pairs.js';
 
 /** One completed pair comparison, ready to be written out in any format. */
@@ -21,13 +21,11 @@ export interface PageVerdict {
   contentMatch: number;
   pixelRatio: number;
   maxOffsetIn: number;
-  /** Which thresholds were breached, for the JUnit failure message. */
-  breaches: string[];
+  /** What differed, for the JUnit failure message. Empty when the page passed. */
+  differences: string[];
 }
 
 export interface RunContext {
-  thresholdsLabel: string;
-  defaults: ExportThresholds;
   generatedAt: Date;
   referenceDir: string;
   candidateDir: string;
