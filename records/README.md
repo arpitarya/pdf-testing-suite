@@ -114,6 +114,10 @@ Start from `TEMPLATE.md`.
 | [0058](0058_WORK-ownership.md) | **SR-WORK-OWNERSHIP** | `owns` and `describes`, and the commit guard | accepted | yes |
 | [0059](0059_WORK-governance.md) | **SR-WORK-GOVERNANCE** | The governance map — which file governs what; no counts | accepted | yes |
 | [0060](0060_WORK-registry.md) | **SR-WORK-REGISTRY** | The doc registry — rules in §2, the table in §3 | accepted | yes |
+| [0101](0101_SPEC-intake.md) | **SR-SPEC-INTAKE** | The spec workbook, its validation, and its conversion to spec JSON | accepted | no |
+| [0102](0102_SPEC-check.md) | **SR-SPEC-CHECK** | Checking a PDF against spec JSON — pages, reading, comparing, coverage | accepted | no |
+| [0103](0103_CONSTANTS.md) | **SR-CONSTANTS** | One constants file for every default and limit | accepted | no |
+| [0104](0104_STACK-typescript.md) | **SR-STACK-TYPESCRIPT** | The product is TypeScript; the Python CLI is removed | accepted | no |
 
 ---
 
@@ -137,10 +141,19 @@ directions.
 | `.claude/hooks/session-lock.sh` | SR-WORK-BLOCKERS | decision 7 |
 | `.claude/hooks/require-progress.sh` | SR-WORK-SESSION | decision 5 |
 | `src/` | W-01 | the React/Vite PDF compare app — no record yet |
+| `src/services/specCheck.ts` | SR-SPEC-CHECK | the spec checker |
+| `src/services/specExport.ts` | SR-SPEC-CHECK | the spec report exports |
+| `src/store/specStore.ts` | SR-SPEC-CHECK | the spec tab's state |
+| `src/components/spec/` | SR-SPEC-CHECK | the spec tab |
+| `src/types/spec.ts` | SR-SPEC-INTAKE | the spec JSON type |
+| `src/services/specConstants.ts` | SR-CONSTANTS | every default and limit — created by W-05 |
 | `cli/` | W-01 | the Node CLI — no record yet |
-| `cli-py/` | W-01 | the Python CLI — no record yet |
+| `cli-py/` | W-03 | the Python CLI — removed by W-03 (SR-STACK-TYPESCRIPT decision 2) |
 | `public/` | W-01 | static pages and samples — no record yet |
+| `public/samples/spec-sample.json` | SR-SPEC-CHECK | the in-app spec sample |
+| `public/samples/spec-sample.pdf` | SR-SPEC-CHECK | the in-app spec sample |
 | `tools/` | W-01 | planning notes — no record yet |
+| `tools/samples/excel-spec-hierarchical/` | SR-SPEC-INTAKE | the fictional legacy-layout spec fixture |
 | `index.html` | W-01 | app entry — no record yet |
 | `vite.config.ts` | W-01 | build config — no record yet |
 | `tsconfig.json` | W-01 | build config — no record yet |
@@ -149,7 +162,7 @@ directions.
 | `package-lock.json` | W-01 | dependencies — no record yet |
 | `flag.env` | W-01 | feature flags — no record yet |
 | `README.md` | W-01 | product docs — no record yet |
-| `spec-standard.md` | W-01 | product docs — no record yet |
+| `spec-standard.md` | SR-SPEC-INTAKE | the spec JSON format and the workbook template |
 | `comparison.md` | W-01 | product docs — no record yet |
 | `presentation-script.md` | W-01 | product docs — no record yet |
 | `docs/ARCHITECTURE.md` | W-01 | product architecture diagrams — no record yet |
@@ -170,5 +183,8 @@ A component may be narrowed to symbols: `` `path::name,name` ``.
 
 | component | describer | why |
 |---|---|---|
+| `src/store/specStore.ts` | SR-SPEC-INTAKE | holds the uploaded spec and its validation (decisions 1, 2, 13) |
+| `src/components/spec/SpecTestView.tsx` | SR-SPEC-INTAKE | the spec upload — accepted types, label, downloads (decisions 1, 14) |
+| `src/services/specCheck.ts::validateSpec` | SR-SPEC-INTAKE | validates an uploaded spec JSON (decision 2) |
 
 <!-- DESCRIBES-TABLE-END -->
