@@ -11,6 +11,8 @@ import {
   type ChangeType,
 } from '../../services/changes';
 import { ignoredList, ignoredRefsFor, useIgnoreStore } from '../../store/ignoreStore';
+import { partitionByRegion, regionOf, regionsFor, useRegionStore } from '../../store/regionStore';
+import DataRegionLayer, { DataRegionToolbar } from './DataRegionLayer';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
 
@@ -80,6 +82,8 @@ function PageWithBoxes({
             );
           })}
           {flags.annotations && <AnnotationLayer page={currentPage} side={side} />}
+          {/* Regions describe the template, so both sides show the same ones. */}
+          <DataRegionLayer page={currentPage} />
         </div>
       ) : (
         <div className="page-missing" style={{ width: dispW, height: dispH }}>
@@ -97,6 +101,11 @@ export default function ContentCompareView() {
   const movedThreshold = useCompareStore((s) => s.offsetThresholdIn);
   const contentZoom = useCompareStore((s) => s.contentZoom);
   const ignoredMap = useIgnoreStore((s) => s.ignored);
+  const regions = useRegionStore((s) => s.regions);
+  const drawingRegion = useRegionStore((s) => s.drawing);
+  const removeRegion = useRegionStore((s) => s.remove);
+  const setDrawingRegion = useRegionStore((s) => s.setDrawing);
+  const useRegionTemplate = useRegionStore((s) => s.useTemplate);
   const ignoreChange = useIgnoreStore((s) => s.ignore);
   const restoreChange = useIgnoreStore((s) => s.restore);
   const setContentZoom = useCompareStore((s) => s.setContentZoom);
@@ -108,6 +117,14 @@ export default function ContentCompareView() {
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [menuStep, setMenuStep] = useState<'menu' | 'reason'>('menu');
   const [reason, setReason] = useState('');
+  /** Rows ticked for a group action, by change id. */
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchReason, setBatchReason] = useState('');
+  /** Last row ticked, so shift-click can take the span up to this one. */
+  const [anchor, setAnchor] = useState<number | null>(null);
+  /** Ignored regions whose contents are expanded in the Ignored tab. */
+  const [openRegions, setOpenRegions] = useState<Set<string>>(new Set());
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('changes');
   const [enabled, setEnabled] = useState<Record<ChangeType, boolean>>({
     removed: true,
@@ -130,9 +147,24 @@ export default function ContentCompareView() {
     () => (pc ? buildChanges(pc, movedThreshold) : []),
     [pc, movedThreshold],
   );
+  // Two routes to the same verdict, applied in order: a region ignores an area,
+  // an ignore accepts one difference. Regions come first — a difference inside
+  // one is already decided, so it never reaches the per-difference check.
+  const pageRegions = useMemo(() => regionsFor(regions, currentPage), [regions, currentPage]);
+  const refImgForRegions = pc?.imageA ?? pc?.imageB ?? null;
+  const split = useMemo(
+    () =>
+      partitionByRegion(
+        allChanges,
+        pageRegions,
+        refImgForRegions?.width ?? 0,
+        refImgForRegions?.height ?? 0,
+      ),
+    [allChanges, pageRegions, refImgForRegions],
+  );
   const changes = useMemo(
-    () => allChanges.filter((c) => !ignoredKeys.has(c.key)),
-    [allChanges, ignoredKeys],
+    () => split.tested.filter((c) => !ignoredKeys.has(c.key)),
+    [split, ignoredKeys],
   );
 
   const counts = useMemo(() => {
@@ -142,6 +174,87 @@ export default function ContentCompareView() {
   }, [changes]);
 
   const visible = useMemo(() => changes.filter((c) => enabled[c.type]), [changes, enabled]);
+
+  // A selection is a set of rows, but a decision is per difference: the two
+  // halves of a replacement are one thing, so they tick and ignore together.
+  const selectedGroups = useMemo(() => {
+    const groups = new Set<number>();
+    for (const c of visible) if (selected.has(c.id)) groups.add(c.group);
+    return groups;
+  }, [visible, selected]);
+
+  const selectIds = (rows: Change[]) => {
+    const groups = new Set(rows.map((c) => c.group));
+    setSelected(new Set(visible.filter((c) => groups.has(c.group)).map((c) => c.id)));
+  };
+
+  /** Tick or untick a row, taking the whole span on shift-click. */
+  const toggleRow = (c: Change, on: boolean, span: boolean) => {
+    const next = new Set(selected);
+    let rows = [c];
+    if (span && anchor != null) {
+      const from = visible.findIndex((v) => v.id === anchor);
+      const to = visible.findIndex((v) => v.id === c.id);
+      if (from >= 0 && to >= 0) {
+        rows = visible.slice(Math.min(from, to), Math.max(from, to) + 1);
+      }
+    }
+    const groups = new Set(rows.map((r) => r.group));
+    for (const v of visible) {
+      if (!groups.has(v.group)) continue;
+      if (on) next.add(v.id);
+      else next.delete(v.id);
+    }
+    setSelected(next);
+    setAnchor(c.id);
+  };
+
+  /** One reason, recorded against every selected difference. */
+  const ignoreSelected = () => {
+    const done = new Set<number>();
+    for (const c of visible) {
+      if (!selected.has(c.id) || done.has(c.group)) continue;
+      done.add(c.group);
+      ignoreChange({
+        page: currentPage,
+        key: c.key,
+        label: c.label,
+        summary: changeSummary(allChanges.filter((m) => m.group === c.group)),
+        reason: batchReason.trim(),
+      });
+    }
+    setSelected(new Set());
+    setAnchor(null);
+    setBatchOpen(false);
+    setBatchReason('');
+  };
+
+  // What each region is actually covering, over every page compared so far. A
+  // page not yet computed contributes nothing, so a region's list fills in as
+  // the user moves through the document rather than claiming a wrong zero.
+  const pageCache = useCompareStore((s) => s.pageCache);
+  const regionChanges = useMemo(() => {
+    const out = new Map<string, Change[]>();
+    for (const [key, cached] of Object.entries(pageCache)) {
+      const page = Number(key);
+      const here = regionsFor(regions, page);
+      if (here.length === 0) continue;
+      const ref = cached.imageA ?? cached.imageB ?? null;
+      for (const c of buildChanges(cached, movedThreshold)) {
+        const r = regionOf(c, here, ref?.width ?? 0, ref?.height ?? 0);
+        if (!r) continue;
+        const list = out.get(r.id);
+        if (list) list.push(c);
+        else out.set(r.id, [c]);
+      }
+    }
+    return out;
+  }, [pageCache, regions, movedThreshold]);
+
+  const regionList = useMemo(
+    () => [...regions].sort((a, b) => a.page - b.page || a.y - b.y),
+    [regions],
+  );
 
   // The highlight group of the hovered change — paired removed/added share a group,
   // so hovering either half lights up both.
@@ -164,6 +277,36 @@ export default function ContentCompareView() {
     setStageW(el.clientWidth);
   }, []);
   useEffect(() => () => roRef.current?.disconnect(), []);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setAnchor(null);
+    setBatchOpen(false);
+  }, [currentPage, ignoredMap, regions]);
+
+  useEffect(() => {
+    setOpenRegions((prev) => {
+      const live = new Set(regions.map((r) => r.id));
+      const next = new Set([...prev].filter((id) => live.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [regions]);
+
+  // Regions describe a template, so they follow the golden PDF: compare the same
+  // golden against a second candidate and the declarations are already there.
+  const goldenName = useCompareStore((s) => s.sideA?.name ?? '');
+  useEffect(() => {
+    useRegionTemplate(goldenName);
+  }, [goldenName, useRegionTemplate]);
+
+  useEffect(() => {
+    if (!drawingRegion) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawingRegion(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawingRegion, setDrawingRegion]);
 
   useEffect(() => {
     if (menuFor == null) return;
@@ -242,6 +385,8 @@ export default function ContentCompareView() {
           <div className="spacer" />
 
           {flags.annotations && <AnnotationToolbar page={currentPage} />}
+
+          <DataRegionToolbar page={currentPage} inDataCount={split.inData.length} />
 
           <div className="zoom-group" title="Zoom the page view">
             <button className="zoombtn" onClick={() => setContentZoom(contentZoom / 1.25)} title="Zoom out">
@@ -336,7 +481,10 @@ export default function ContentCompareView() {
                 className={`tab ${drawerTab === 'ignored' ? 'active' : ''}`}
                 onClick={() => setDrawerTab('ignored')}
               >
-                Ignored{allIgnored.length > 0 ? ` · ${allIgnored.length}` : ''}
+                Ignored
+                {allIgnored.length + regionList.length > 0
+                  ? ` · ${allIgnored.length + regionList.length}`
+                  : ''}
               </button>
             </div>
             <span className="spacer" />
@@ -356,17 +504,114 @@ export default function ContentCompareView() {
                   All change types are hidden — enable a filter in the toolbar.
                 </div>
               ) : (
-                <div className="chg-list">
+                <>
+                  <div className="bulk-bar">
+                    {selectedGroups.size === 0 ? (
+                      <>
+                        <span className="bulk-lead">Select</span>
+                        <button
+                          className="btn sm"
+                          title="Select every difference listed on this page"
+                          onClick={() => selectIds(visible)}
+                        >
+                          All on page
+                        </button>
+                        {TYPE_ORDER.filter((t) => enabled[t] && counts[t] > 0).map((t) => (
+                          <button
+                            key={t}
+                            className="btn sm"
+                            title={`Select every ${TYPE_LABEL[t].toLowerCase()} difference on this page`}
+                            onClick={() => selectIds(visible.filter((c) => c.type === t))}
+                          >
+                            <i className={`dot ${t}`} /> {TYPE_LABEL[t]}
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <span className="bulk-count">
+                          {selectedGroups.size} selected
+                        </span>
+                        <span className="spacer" />
+                        <button
+                          className="btn sm"
+                          onClick={() => {
+                            setSelected(new Set());
+                            setAnchor(null);
+                            setBatchOpen(false);
+                          }}
+                        >
+                          Clear
+                        </button>
+                        <button
+                          className="btn sm primary"
+                          onClick={() => {
+                            setBatchReason('');
+                            setBatchOpen(true);
+                          }}
+                        >
+                          Ignore selected
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {batchOpen && (
+                    <div className="bulk-reason">
+                      <div className="chg-menu-head">
+                        Why are these {selectedGroups.size} expected?
+                      </div>
+                      <textarea
+                        autoFocus
+                        value={batchReason}
+                        placeholder="Optional — recorded against each of them in the report"
+                        onChange={(e) => setBatchReason(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setBatchOpen(false);
+                        }}
+                      />
+                      <div className="chg-menu-foot">
+                        <button className="btn sm" onClick={() => setBatchOpen(false)}>
+                          Cancel
+                        </button>
+                        <span className="spacer" />
+                        <button className="btn sm primary" onClick={ignoreSelected}>
+                          Ignore {selectedGroups.size}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="chg-list">
                   {visible.map((c) => (
                       <div
                         key={c.id}
-                        className={`chg-item ${c.group === hlGroup ? 'hl' : ''}`}
+                        className={`chg-item ${c.group === hlGroup ? 'hl' : ''} ${
+                          selected.has(c.id) ? 'picked' : ''
+                        }`}
                         onMouseEnter={() => setHighlighted(c.id)}
                         onMouseLeave={() => setHighlighted(null)}
                       >
+                        <input
+                          type="checkbox"
+                          className="chg-pick"
+                          checked={selected.has(c.id)}
+                          aria-label={`Select difference ${c.label}`}
+                          title="Shift-click to take the span from the last one ticked"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            toggleRow(
+                              c,
+                              e.target.checked,
+                              (e.nativeEvent as MouseEvent).shiftKey,
+                            )
+                          }
+                        />
                         <span className={`chg-num chg-${c.type}`}>{c.label}</span>
                         <span className={`chg-chip chg-${c.type}`}>{TYPE_LABEL[c.type]}</span>
-                        <span className="chg-text" title={c.text}>{c.text}</span>
+                        <span className="chg-text" title={c.text}>
+                          {(c.a ?? c.b)?.kind === 'image' ? <em>🖼 Image</em> : c.text}
+                        </span>
 
                         <span className="chg-more">
                           <button
@@ -440,15 +685,85 @@ export default function ContentCompareView() {
                         ) : null}
                       </div>
                   ))}
-                </div>
+                  </div>
+                </>
               )
             ) : drawerTab === 'ignored' ? (
-              allIgnored.length === 0 ? (
+              allIgnored.length === 0 && regionList.length === 0 ? (
                 <div className="chg-empty muted-empty">
-                  Nothing ignored. Use the ⋯ menu on a change to mark it as expected.
+                  Nothing ignored. Use the ⋯ menu on a change to mark it as expected,
+                  or ▦ Ignore a region to accept a whole area at once.
                 </div>
               ) : (
                 <div className="ign-list">
+                  {regionList.length > 0 && (
+                    <>
+                      <div className="ign-group">
+                        Regions · {regionList.length}
+                      </div>
+                      {regionList.map((r) => {
+                        const inside = regionChanges.get(r.id) ?? [];
+                        const open = openRegions.has(r.id);
+                        return (
+                          <div key={r.id} className="ign-item region">
+                            <div className="ign-head">
+                              <span className="ign-page">Page {r.page + 1}</span>
+                              <span className="ign-kind">▦ Region</span>
+                              <span className="spacer" />
+                              <button
+                                className="btn sm"
+                                onClick={() => removeRegion(r.id)}
+                                title="Put this area back into the comparison"
+                              >
+                                Undo
+                              </button>
+                            </div>
+                            <div className="ign-summary">{r.label}</div>
+
+                            {inside.length === 0 ? (
+                              <div className="ign-reason">No changes inside this area so far</div>
+                            ) : (
+                              <button
+                                className="ign-expand"
+                                aria-expanded={open}
+                                onClick={() =>
+                                  setOpenRegions((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(r.id)) next.delete(r.id);
+                                    else next.add(r.id);
+                                    return next;
+                                  })
+                                }
+                              >
+                                <span className={`caret ${open ? 'open' : ''}`}>▸</span>
+                                {inside.length} change{inside.length === 1 ? '' : 's'} ignored
+                                {open ? '' : ' — show'}
+                              </button>
+                            )}
+
+                            {open && (
+                              <div className="ign-sub">
+                                {inside.map((c) => (
+                                  <div key={c.id} className="ign-sub-item">
+                                    <span className={`chg-chip chg-${c.type}`}>
+                                      {TYPE_LABEL[c.type]}
+                                    </span>
+                                    <span className="chg-text" title={c.text}>
+                                      {(c.a ?? c.b)?.kind === 'image' ? <em>🖼 Image</em> : c.text}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {allIgnored.length > 0 && regionList.length > 0 && (
+                    <div className="ign-group">Differences · {allIgnored.length}</div>
+                  )}
                   {allIgnored.map((e) => (
                     <div key={e.ref} className="ign-item">
                       <div className="ign-head">

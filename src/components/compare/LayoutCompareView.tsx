@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import AnnotationLayer, { AnnotationToolbar } from './AnnotationLayer';
 import { flags } from '../../flags';
 import { ignoredRefsFor, useIgnoreStore } from '../../store/ignoreStore';
+import { partitionByRegion, regionsFor, useRegionStore } from '../../store/regionStore';
 import type { LayoutViewMode, MatchedPair, RenderedPageImage, TextItem } from '../../types/compare';
 import { useCompareStore } from '../../store/compareStore';
 import {
@@ -133,10 +134,22 @@ export default function LayoutCompareView() {
   // shift measurements agree with what Side by side shows.
   const ignoredMap = useIgnoreStore((s) => s.ignored);
   const ignoredKeys = useMemo(() => ignoredRefsFor(ignoredMap, currentPage), [ignoredMap, currentPage]);
-  const changes = useMemo(
-    () => (pc ? buildChanges(pc, offsetThresholdIn).filter((c) => !ignoredKeys.has(c.key)) : []),
-    [pc, offsetThresholdIn, ignoredKeys],
-  );
+  // Ignored regions drop out here as well, for the same reason: an area whose
+  // changes are expected should not light the heat map up.
+  const regions = useRegionStore((s) => s.regions);
+  const pageRegions = useMemo(() => regionsFor(regions, currentPage), [regions, currentPage]);
+  const regionRef = pc?.imageA ?? pc?.imageB ?? null;
+  const changes = useMemo(() => {
+    if (!pc) return [];
+    const all = buildChanges(pc, offsetThresholdIn);
+    const { tested } = partitionByRegion(
+      all,
+      pageRegions,
+      regionRef?.width ?? 0,
+      regionRef?.height ?? 0,
+    );
+    return tested.filter((c) => !ignoredKeys.has(c.key));
+  }, [pc, offsetThresholdIn, ignoredKeys, pageRegions, regionRef]);
   const heatBoxes = useMemo(() => heatmapBoxes(changes), [changes]);
   const movedChanges = useMemo(() => changes.filter((c) => c.type === 'moved'), [changes]);
   const styledChanges = useMemo(() => changes.filter((c) => c.type === 'styled'), [changes]);

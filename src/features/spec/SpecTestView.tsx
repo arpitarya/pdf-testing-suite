@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSpecStore } from '../../store/specStore';
-import type { Box, ElementResult, SpecPageResult } from '../../types/spec';
+import { useSpecStore } from './specStore';
+import type { Box, ElementResult, SpecPageResult } from './types';
 
 const TYPE_ICON: Record<ElementResult['type'], string> = {
   text: '📝',
@@ -129,6 +129,12 @@ export default function SpecTestView() {
   const setMode = useSpecStore((s) => s.setMode);
   const setTargetPdfPage = useSpecStore((s) => s.setTargetPdfPage);
   const setTargetSpecPage = useSpecStore((s) => s.setTargetSpecPage);
+  const workbook = useSpecStore((s) => s.workbook);
+  const loadingWorkbook = useSpecStore((s) => s.loadingWorkbook);
+  const activeSheet = useSpecStore((s) => s.activeSheet);
+  const sheetNotes = useSpecStore((s) => s.sheetNotes);
+  const sheetStats = useSpecStore((s) => s.sheetStats);
+  const selectSheet = useSpecStore((s) => s.selectSheet);
 
   const [hovered, setHovered] = useState<string | null>(null);
 
@@ -147,8 +153,8 @@ export default function SpecTestView() {
           <div className="upload-row" style={{ maxWidth: 560 }}>
             <SpecUpload kind="pdf" label="PDF to test" hint="Drop the generated PDF" accept=".pdf,application/pdf"
             name={pdfName} loading={loadingPdf} error={errorPdf} onFile={loadPdfFile} onClear={clearPdf} />
-          <SpecUpload kind="spec" label="CSV spec" hint="Drop the spec file" accept=".json,.csv,application/json,text/csv"
-            name={specName} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
+          <SpecUpload kind="spec" label="Spec workbook" hint="Drop an .xlsx, .csv or .json" accept=".xlsx,.xlsm,.csv,.json,application/json,text/csv"
+            name={specName} loading={loadingWorkbook} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
           </div>
         )}
         <div className="spacer" />
@@ -160,7 +166,96 @@ export default function SpecTestView() {
         )}
       </div>
 
-      {pdfDoc && spec && (
+      {/* A workbook pairs a sheet with a page: the choice on each side is a
+          list, so the mapping is read left to right and nothing is implied by a
+          number typed into a box. */}
+      {pdfDoc && workbook && (
+        <div className="sp-pair">
+          <div className="card sp-pane">
+            <div className="sp-pane-head">
+              <span className="sp-cap">Spec sheet</span>
+              <span className="sp-sub" title={workbook.name}>{workbook.name}</span>
+            </div>
+            <div className="sp-list" role="radiogroup" aria-label="Sheet to compare">
+              {workbook.sheets.map((sh) => (
+                <button
+                  key={sh.name}
+                  role="radio"
+                  aria-checked={sh.name === activeSheet}
+                  className={`sp-row ${sh.name === activeSheet ? 'on' : ''}`}
+                  onClick={() => selectSheet(sh.name)}
+                >
+                  <span className="sp-dot" />
+                  <span className="sp-name" title={sh.name}>{sh.name}</span>
+                  <span className="sp-meta">
+                    {sh.rows.length} row{sh.rows.length === 1 ? '' : 's'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sp-arrow" aria-hidden="true">→</div>
+
+          <div className="card sp-pane">
+            <div className="sp-pane-head">
+              <span className="sp-cap">PDF page</span>
+              <span className="sp-sub" title={pdfName ?? ''}>{pdfName}</span>
+            </div>
+            <div className="sp-list" role="radiogroup" aria-label="PDF page to check">
+              {Array.from({ length: pdfPageCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  role="radio"
+                  aria-checked={n === targetPdfPage}
+                  className={`sp-row ${n === targetPdfPage ? 'on' : ''}`}
+                  onClick={() => setTargetPdfPage(n)}
+                  disabled={!activeSheet}
+                >
+                  <span className="sp-dot" />
+                  <span className="sp-name">Page {n}</span>
+                  {report && report.pages[0]?.page === n && (
+                    <span className={`sp-meta ${report.totalFail === 0 ? 'ok' : 'no'}`}>
+                      {report.totalFail === 0 ? 'all pass' : `${report.totalFail} failed`}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* What the sheet gave up on. Shown rather than buried: a converted sheet
+          is a first pass over a human document, and a silent gap reads as a
+          clean bill of health. */}
+      {workbook && activeSheet && sheetStats && (
+        <div className="sp-conv">
+          <div className="sp-conv-head">
+            <b>{activeSheet}</b>
+            <span className="chip added">{sheetStats.converted} checkable</span>
+            {sheetStats.skipped > 0 && (
+              <span className="chip removed">{sheetStats.skipped} skipped</span>
+            )}
+            <span className="spacer" />
+            <span className="sp-sub">
+              {spec?.units === 'in' ? 'inches' : spec?.units === 'mm' ? 'millimetres' : 'points'}
+              {spec?.pageSize ? ` · page ${spec.pageSize.width} × ${spec.pageSize.height}` : ''}
+            </span>
+          </div>
+          {sheetNotes.length > 0 && (
+            <ul className="sp-notes">
+              {sheetNotes.map((n, i) => (
+                <li key={i} className={n.severity}>
+                  <span className="sp-note-where">{n.where}</span> {n.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {pdfDoc && spec && !workbook && (
         <div className="spec-target">
           <div className="tabs" role="group" aria-label="What to check">
             <button
@@ -261,27 +356,38 @@ export default function SpecTestView() {
       )}
 
       <main className="app-body">
-        {!pdfDoc || !spec ? (
+        {!pdfDoc || (!spec && !workbook) ? (
           <div className="empty-state">
             <div className="icon">📄🆚🧾</div>
             <h2>Test a new page against a spec</h2>
             <p>
               When there's no reference PDF — only a design spec — upload the <strong>generated PDF</strong> and the
-              <strong> spec</strong> that describes the expected content and layout (static text, images, tables,
-              paragraph spacing) with positions in inches. The checker verifies the PDF against it.
+              <strong> spec workbook</strong> that describes the expected content and layout (static text, images,
+              tables, paragraph spacing) with positions in inches. Pick a sheet and the PDF page it describes, and
+              the checker verifies one against the other.
             </p>
 
             <div className="upload-row stacked">
               <SpecUpload kind="pdf" label="PDF to test" hint="Drop the generated PDF" accept=".pdf,application/pdf"
             name={pdfName} loading={loadingPdf} error={errorPdf} onFile={loadPdfFile} onClear={clearPdf} />
-          <SpecUpload kind="spec" label="CSV spec" hint="Drop the spec file" accept=".json,.csv,application/json,text/csv"
-            name={specName} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
+          <SpecUpload kind="spec" label="Spec workbook" hint="Drop an .xlsx, .csv or .json" accept=".xlsx,.xlsm,.csv,.json,application/json,text/csv"
+            name={specName} loading={loadingWorkbook} error={errorSpec} onFile={loadSpecFile} onClear={clearSpec} />
             </div>
 
             <p className="empty-aside">
               <button className="btn quiet" onClick={loadExample} disabled={loadingExample}>
                 {loadingExample ? (<><span className="spinner" /> Loading…</>) : 'or load an example spec + PDF'}
               </button>
+            </p>
+          </div>
+        ) : workbook && !activeSheet ? (
+          <div className="empty-state sp-compact">
+            <div className="icon">▤</div>
+            <h2>Pick a sheet to check</h2>
+            <p>
+              {workbook.sheets.length} sheet{workbook.sheets.length === 1 ? '' : 's'} in{' '}
+              <strong>{workbook.name}</strong>. Choose one on the left and the PDF page it describes on
+              the right — the check runs as soon as both are set.
             </p>
           </div>
         ) : running && !report ? (

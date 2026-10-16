@@ -12,8 +12,10 @@ import ExportMenu from './components/compare/ExportMenu';
 import ImportBundleButton from './components/compare/ImportBundleButton';
 import BatchExportMenu from './components/batch/BatchExportMenu';
 import { flags } from './flags';
-import SpecExportMenu from './components/spec/SpecExportMenu';
-import SpecTestView from './components/spec/SpecTestView';
+// The spec-driven feature is self-contained and worked on separately; this
+// barrel is the only thing the app may import from it. See
+// src/features/spec/README.md.
+import { SpecExportMenu, SpecTestView } from './features/spec';
 import MeasureView from './components/measure/MeasureView';
 import BatchView from './components/batch/BatchView';
 
@@ -26,9 +28,9 @@ const AUTO_SCAN_MAX_PAGES = 60;
 // Tab order and labels in one place: the header renders straight from this.
 const WORKSPACE_TABS: [Workspace, string][] = [
   ['batch', 'Batch compare'],
-  ['compare', 'Compare 2 PDFs'],
+  ['compare', 'Compare'],
   ['spec', 'Spec driven comparison'],
-  ['measure', 'Inspect PDF'],
+  ['measure', 'Inspect'],
 ].filter(([id]) => id !== 'batch' || flags.batchCompare) as [Workspace, string][];
 
 const MODE_TABS: [CompareMode, string, string][] = [
@@ -99,7 +101,7 @@ export default function App() {
           </div>
         )}
         {/* Every workspace that produces results exports from the same corner.
-            Inspect PDF has nothing to export, so it gets no button at all. */}
+            Inspect has nothing to export, so it gets no button at all. */}
         {ws !== 'measure' && (
           <div className="header-right">
             {ws === 'compare' && <ImportBundleButton />}

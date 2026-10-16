@@ -44,6 +44,7 @@ export async function loadPdf(file: File): Promise<PDFDocumentProxy> {
 interface RenderResult {
   image: RenderedPageImage;
   items: TextItem[];
+  images: TextItem[];
 }
 
 // ── 5.2 renderAndExtract ──────────────────────────────────────────────
@@ -84,10 +85,140 @@ async function renderAndExtract(
   const letterboxed = Math.abs(vp1.width / vp1.height - targetW / targetH) > 0.01;
 
   const items = await extractItems(page, viewport, scale, offsetX, offsetY);
+  const images = await extractImages(page, vp1, scale, offsetX, offsetY);
 
   return {
     image: { dataUrl, imageData, width: targetW, height: targetH, letterboxed },
     items,
+    images,
+  };
+}
+
+/**
+ * Image placements on the page, in the same pixel space as the text runs.
+ *
+ * Images are absent from the text layer, so they have to come off the operator
+ * list: walk it tracking the transform matrix, and every paint op gives the unit
+ * square its placed rectangle. Without this a logo that moves is invisible to
+ * the comparison — the pixel diff sees it, but nothing names it.
+ */
+async function extractImages(
+  page: PDFPageProxy,
+  vp1: pdfjsLib.PageViewport,
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+): Promise<TextItem[]> {
+  const opList = await page.getOperatorList();
+  const OPS = pdfjsLib.OPS as unknown as Record<string, number>;
+  const paintOps = new Set(
+    [
+      'paintImageXObject',
+      'paintImageXObjectRepeat',
+      'paintJpegXObject',
+      'paintImageMaskXObject',
+      'paintInlineImageXObject',
+    ]
+      .map((k) => OPS[k])
+      .filter((v) => v != null),
+  );
+
+  const out: TextItem[] = [];
+  let ctm: number[] = [1, 0, 0, 1, 0, 0];
+  const stack: number[][] = [];
+
+  for (let i = 0; i < opList.fnArray.length; i++) {
+    const fn = opList.fnArray[i];
+    if (fn === OPS.save) {
+      stack.push(ctm.slice());
+    } else if (fn === OPS.restore) {
+      ctm = stack.pop() ?? [1, 0, 0, 1, 0, 0];
+    } else if (fn === OPS.transform) {
+      ctm = pdfjsLib.Util.transform(ctm, opList.argsArray[i] as number[]);
+    } else if (paintOps.has(fn)) {
+      const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map((p) =>
+        pdfjsLib.Util.applyTransform(p, ctm),
+      );
+      const xs = corners.map((c) => c[0]);
+      const ys = corners.map((c) => c[1]);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      const w = (maxX - minX) * scale;
+      const h = (maxY - minY) * scale;
+      // Ignore hairline artefacts: rules and separators are often drawn as
+      // 1pt-tall images and would swamp the list.
+      if (w < 4 || h < 4) continue;
+
+      out.push({
+        str: 'Image',
+        kind: 'image',
+        x: minX * scale + offsetX,
+        // PDF user space is bottom-up; the app's boxes are top-down.
+        y: (vp1.height - maxY) * scale + offsetY,
+        w,
+        h,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Pair images between the two sides.
+ *
+ * They carry no text, so identity comes from shape and proximity: the closest
+ * unclaimed image of a similar size wins. Anything left over on one side only
+ * is a genuine addition or removal.
+ */
+function matchImages(a: TextItem[], b: TextItem[]) {
+  const matched: MatchedPair[] = [];
+  const usedB = new Set<number>();
+
+  for (const ia of a) {
+    let best = -1;
+    let bestD = Infinity;
+    for (let j = 0; j < b.length; j++) {
+      if (usedB.has(j)) continue;
+      const ib = b[j];
+      // Same picture, moved: the drawn size should be close.
+      const sizeOff =
+        Math.abs(ib.w - ia.w) / Math.max(ia.w, 1) + Math.abs(ib.h - ia.h) / Math.max(ia.h, 1);
+      if (sizeOff > 0.25) continue;
+      const d = Math.hypot(
+        ib.x + ib.w / 2 - (ia.x + ia.w / 2),
+        ib.y + ib.h / 2 - (ia.y + ia.h / 2),
+      );
+      if (d < bestD) {
+        bestD = d;
+        best = j;
+      }
+    }
+    if (best === -1) continue;
+    usedB.add(best);
+    const ib = b[best];
+    const dx = ib.x - ia.x;
+    const dy = ib.y - ia.y;
+    matched.push({
+      str: 'Image',
+      a: ia,
+      b: ib,
+      dx,
+      dy,
+      dw: ib.w - ia.w,
+      dh: ib.h - ia.h,
+      offset: Math.hypot(dx, dy),
+    });
+  }
+
+  const claimedA = new Set(matched.map((m) => m.a));
+  return {
+    matched,
+    onlyA: a.filter((x) => !claimedA.has(x)),
+    onlyB: b.filter((_, j) => !usedB.has(j)),
   };
 }
 
@@ -295,7 +426,7 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 export function matchItems(
   itemsA: TextItem[],
   itemsB: TextItem[],
-  opts: { compareSizes?: boolean } = {},
+  opts: { compareSizes?: boolean; imagesA?: TextItem[]; imagesB?: TextItem[] } = {},
 ): ItemMatch {
   const matched: MatchedPair[] = [];
   const onlyA: TextItem[] = [];
@@ -366,6 +497,7 @@ export function matchItems(
     onlyA: reconciled.onlyA,
     onlyB: reconciled.onlyB,
     restyled: reconciled.restyled,
+    images: matchImages(opts.imagesA ?? [], opts.imagesB ?? []),
   };
 }
 
@@ -676,12 +808,15 @@ export async function comparePage(
   let imageB: RenderedPageImage | null = null;
   let itemsA: TextItem[] = [];
   let itemsB: TextItem[] = [];
+  let imagesA: TextItem[] = [];
+  let imagesB: TextItem[] = [];
 
   if (hasA) {
     const pageA = await pdfA!.getPage(pageIndex + 1);
     const r = await renderAndExtract(pageA, box.w, box.h);
     imageA = r.image;
     itemsA = r.items;
+    imagesA = r.images;
     if (itemsA.length === 0) notes.push('No selectable text layer in the golden PDF (scanned image?).');
   } else {
     notes.push('This page exists only in the PDF under test.');
@@ -692,6 +827,7 @@ export async function comparePage(
     const r = await renderAndExtract(pageB, box.w, box.h);
     imageB = r.image;
     itemsB = r.items;
+    imagesB = r.images;
     if (itemsB.length === 0) notes.push('No selectable text layer in the PDF under test (scanned image?).');
     if (r.image.letterboxed) {
       notes.push('The tested page has a different size/aspect ratio and was scaled to fit the golden page.');
@@ -708,7 +844,11 @@ export async function comparePage(
   // A letterboxed B was uniformly rescaled to fit A's box, so glyph sizes on this
   // page are not comparable between the two sides.
   const rescaled = imageB?.letterboxed === true;
-  const match = matchItems(itemsA, itemsB, { compareSizes: !rescaled });
+  const match = matchItems(itemsA, itemsB, {
+    compareSizes: !rescaled,
+    imagesA,
+    imagesB,
+  });
   const maxOffset = match.matched.reduce((m, p) => Math.max(m, p.offset), 0);
 
   let pixel: PixelDiffResult | null = null;

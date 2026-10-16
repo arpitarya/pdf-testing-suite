@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPdf } from '../../src/services/pdfCompare';
-import { runSpec, validateSpec } from '../../src/services/specCheck';
+// The spec feature's headless barrel — never a file inside the folder.
+// See src/features/spec/README.md.
+import { runSpec, validateSpec } from '../../src/features/spec/engine';
 
 installPdfLogFilter(false);
 

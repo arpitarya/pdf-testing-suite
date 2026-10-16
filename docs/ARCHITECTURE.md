@@ -344,7 +344,17 @@ Code: `ExportMenu.tsx` · `ImportBundleButton.tsx` · [`src/services/exportZip.t
 
 ## Spec driven comparison
 
+> **Sealed feature.** Everything below lives in `src/features/spec/` and shares no file
+> with the rest of the app, because it is developed on a second machine that cannot push.
+> Work flows one way — this repository out, a zip in — so **the copy of that folder here
+> is a stale mirror; the live one is on the other machine.** The app imports `index.ts`;
+> the CLI imports `engine.ts`. See
+> [`src/features/spec/README.md`](../src/features/spec/README.md),
+> `sh scripts/check-boundary.sh` and `sh scripts/update-from-zip.sh`.
+
 - **No golden PDF:** a JSON spec lists each page's expected elements in inches, points or millimetres from the top-left ([`spec-standard.md`](../spec-standard.md)).
+- **A spec workbook is read in the app.** An `.xlsx`/`.csv` is parsed in the browser and each sheet converted to a one-page spec; the reader pairs **a sheet** with **a PDF page** from two lists.
+- **The conversion reports what it could not do** — a colour, a conditional rule, a wording cell that is all merge fields, an element with no measurement. Nothing is guessed.
 - **Each element is checked on its own,** with expected-vs-actual values and a box on the page.
 - **"One page" mode checks one spec page against any PDF page** — for single-sheet specs that always say `"page": 1`.
 
@@ -352,10 +362,13 @@ Code: `ExportMenu.tsx` · `ImportBundleButton.tsx` · [`src/services/exportZip.t
 flowchart TB
   PDF["Generated PDF"] --> LP["loadPdfFile → loadPdf"]
   SJ["Spec .json"] --> LS["loadSpecFile"]
-  XL[".csv / .xlsx"] -->|"rejected"| MSG["message: convert with<br/>tools/spec-from-excel.py"]
+  XL[".xlsx / .csv"] --> RW["readSheetFile<br/>JSZip + DOMParser → cell grids"]
+  RW --> PICK["pick a sheet"]
+  PICK --> STS["sheetToSpec<br/>label vocabulary, not column position"]
+  STS --> NOTES["conversion notes<br/>skipped · unconvertible · conditional"]
   LS --> VS["validateSpec<br/>non-empty pages · numeric page · elements array"]
-  LP & VS --> SS[("specStore")]
-  MODE["Mode: All pages · or One page<br/>targetSpecPage → targetPdfPage"] --> SS
+  LP & VS & STS --> SS[("specStore")]
+  MODE["Mode: All pages · or One page<br/>a sheet → a PDF page"] --> SS
   SS -->|"run()"| RS["runSpec(pdf, spec, options)"]
   RS --> G
   subgraph PERPAGE["for each selected spec page"]
@@ -379,7 +392,7 @@ flowchart TB
 
 [Open as SVG](architecture/10-spec-driven-comparison.svg)
 
-Code: `src/components/spec/SpecTestView.tsx` · `src/store/specStore.ts` · [`src/services/specCheck.ts`](../src/services/specCheck.ts) · `src/services/specExport.ts`
+Code, all under [`src/features/spec/`](../src/features/spec/README.md): `index.ts` · `engine.ts` · `SpecTestView.tsx` · `specStore.ts` · `specCheck.ts` · `specExport.ts` · `sheetRead.ts` · `sheetSpec.ts` · `pdfjs.ts` · `types.ts` · `spec.css`
 
 > **Watch.** Default tolerances are inch values applied in whatever unit the spec uses. The HTML export inserts `units` unescaped.
 
