@@ -22,6 +22,7 @@ Rules: [SR-WORK-ARCHIVE](../records/0057_WORK-archive.md).
 | `proposals/` | implemented or rejected proposals |
 | `worklog/` | worklog slices cut at each major release |
 | `bootstrap/` | the bootstrap document a work system was set up from, if one is ever archived |
+| `docs/architecture/` | superseded standalone diagrams, when a diagram is replaced rather than re-rendered |
 
 ## `open/`
 
@@ -43,6 +44,12 @@ Rules: [SR-WORK-ARCHIVE](../records/0057_WORK-archive.md).
 
 | file | outcome | successor |
 |---|---|---|
+
+## `docs/architecture/`
+
+| file | superseded | where the live answer lives now |
+|---|---|---|
+| [18-planned-spec-conversion.svg](docs/architecture/18-planned-spec-conversion.svg) | 2026-10-18 — the plan it drew (LLM fallback, confidence tiers) was replaced by the ruled pipeline | [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §Spec driven comparison, end to end — `18-target-spec-driven-comparison.svg`; rules in SR-SPEC-INTAKE, SR-SPEC-CHECK, SR-SPEC |
 
 ## `bootstrap/`
 

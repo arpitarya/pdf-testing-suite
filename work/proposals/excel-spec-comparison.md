@@ -148,8 +148,9 @@ A real spec workbook was reviewed for its **shape only**. What a parser and chec
 | **IMPORTANT NOTE** boxes with cross-page or cross-system rules | recorded as notes; never asserted |
 | **Landscape pages**; images referenced by file name; colours as hex + name + RGB | orientation and image identity become checks; colour stays a coverage line until colour checks exist |
 
-The fictional fixture [`tools/samples/excel-spec-hierarchical/`](../../tools/samples/excel-spec-hierarchical/README.md)
-reproduces this shape with invented content.
+The fictional fixture `tools/samples/excel-spec-hierarchical/` reproduced this shape with invented
+content (deleted 2026-10-18; the live sample is
+[`work/samples/excel-spec-template-v2/`](../samples/excel-spec-template-v2/README.md), Template v2).
 
 ### Research summary
 
@@ -255,7 +256,7 @@ reproduces this shape with invented content.
 ### Open questions — all answered by Arpit, 2026-10-16
 
 1. ~~**Samples.**~~ Real workbooks stay confidential and are never committed; the
-   fictional fixture `tools/samples/excel-spec-hierarchical/` is the only committed
+   fictional fixture `work/samples/excel-spec-template-v2/` is the only committed
    sample (SR-SPEC-INTAKE decision 16).
 2. ~~**Parser home.**~~ In-app TypeScript reader on `jszip`, no new dependency; no Python
    anywhere in the spec pipeline (SR-SPEC-INTAKE decision 3, SR-STACK-TYPESCRIPT).

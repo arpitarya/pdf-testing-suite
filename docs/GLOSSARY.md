@@ -11,8 +11,11 @@ description: "Recurring terms, defined once."
 | Law | a rule that outranks every other record; `SR-LAW-n` |
 | W-nn | an open work item — a queue row plus a detail file |
 | B-nnn | a backlog row — named, unclaimed, no file |
+| At a glance | the section every `W-nn` file opens with: a seven-row table (what · why · done when · status · waits on · who · record) and, for a plan of three or more steps, its flowchart — the screen shown in a meeting; SR-WORK-LIFECYCLE decisions 4a–4d |
 | ball | the one marker every queue row opens with: 🔴 🟣 🟡 🟢 |
 | decider | Siddharth or Arpit — either one rules alone; see SR-WORK-BLOCKERS decision 11 |
+| core | the shared functions in `src/services/` (and the spec feature's `engine.ts`) that both the app and the CLI call; SR-LAW-3 |
+| surface | the app or the CLI — what a person or a pipeline uses; it owns only presentation and delivery; SR-SURFACE-PARITY |
 | blocker | `work/BLOCKED.json` with a decision other than `PROCEED` |
 | veto condition | the checkable condition under which a decision reopens |
 | golden PDF | the reference PDF (side A); its page sets the target box every comparison draws into |

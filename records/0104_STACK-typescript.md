@@ -3,7 +3,7 @@ type: Standing Record
 kind: process
 name: SR-STACK-TYPESCRIPT
 title: "SR-STACK-TYPESCRIPT (0104) — the product is TypeScript"
-description: "The app, the CLI, the engine and the spec pipeline are TypeScript; the Python CLI is removed; Python in development-only scripts awaits a ruling."
+description: "The app, the CLI, the engine and the spec pipeline are TypeScript; the Python CLI is removed; development-only scripts are TypeScript too — `make-cases.py` ported by W-36; the spec sample's Python generator deleted."
 status: accepted
 date: 2026-10-16
 feature: the product's language
@@ -57,14 +57,18 @@ drift.
    pipeline (SR-SPEC-INTAKE). No Python in the product.
 2. **`cli-py/` is removed**, with every live reference to it. The Node CLI is the only CLI.
 3. **New product code is TypeScript.**
-4. **Development-only scripts that are not shipped are outside this record until Arpit or
-   Siddharth rules on them** (the inbox row in `work/OPEN-WORK.md`). Today they are the
-   fixture generators in `tools/samples/` and `cli/verify/make-cases.py`.
+4. **Development-only scripts are TypeScript too** (Arpit, 2026-10-18 — the ruling SR-TESTING
+   decision 3 already implied for fixtures). `cli/verify/make-cases.py` is replaced by a
+   TypeScript generator that reproduces its output byte for byte (W-36) and deleted in that
+   change; until then it runs as it is and is never shipped. The spec sample's Python
+   generator was deleted with the legacy sample on 2026-10-18; its PDFs are frozen in
+   `work/samples/excel-spec-template-v2/` until W-37's TypeScript generator rebuilds them. The work system's own `scripts/check-open-work-inbox.py`
+   is not a product script and is governed by SR-WORK-OPEN-QUEUE, not by this record.
 
 ### Consequences
 
 - **Built:** decisions 1–3. `cli-py/` and every live reference to it were removed on
-  2026-10-16 by W-03 (archived). Decision 4 waits on the inbox ruling.
+  2026-10-16 by W-03 (archived). Decision 4 is built by W-36 (`make-cases.py`); the spec sample's generator is already gone.
 - **Debt:** nothing checks decision 1 — backlog **B-012**.
 - Python users of `pip install pdfsuite` lose that entry point; the Node CLI replaces it.
 
@@ -82,9 +86,9 @@ drift.
 
 ### Veto condition
 
-**Reopen this decision if:** a Python file appears under a product path.
+**Reopen this decision if:** a Python file appears under a product path or `work/samples/`, or — once W-36 has landed — under `cli/`.
 
-**How to check it:** `git ls-files 'src/*.py' 'src/**/*.py' 'cli/src/**/*.py' 'cli-py/**'` returns nothing
+**How to check it:** `git ls-files 'src/*.py' 'src/**/*.py' 'cli/src/**/*.py' 'cli-py/**'` returns nothing; `git ls-files 'work/samples/**/*.py'` returns nothing; after W-36, `git ls-files 'cli/**/*.py'` returns nothing
 
 ---
 

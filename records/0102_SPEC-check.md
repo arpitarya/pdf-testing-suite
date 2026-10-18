@@ -104,7 +104,8 @@ HTML export inserts `units` unescaped; images inside Form XObjects are mis-place
     superscripts are always compared exactly. A line break inside a cell means separate
     lines; the exact break point is not pinned.
 11. **Tolerances resolve per assertion:** the row's range or Tolerance → the workbook's
-    Settings → SR-CONSTANTS. They apply **in the spec's units**.
+    Settings → SR-CONSTANTS. They apply **in the row's own unit** — the one stated in its Unit
+    cell (SR-SPEC-INTAKE decision 7a); a row with no unit never reaches the checker.
 12. **Every result carries its source cell.** A finding states expected (from the
     workbook), actual (from the PDF), the delta and the cell.
 13. **Coverage is part of the result.** Every spec row ends as checked, noted,
@@ -112,10 +113,11 @@ HTML export inserts `units` unescaped; images inside Form XObjects are mis-place
     Nothing passes silently.
 14. **The report records the pair it tested:** the workbook's SHA-256 and template version,
     and the PDF's file name and SHA-256.
-15. **Outputs:** findings highlighted on the page; an HTML report (every inserted value
-    escaped); JSON results; a Markdown fix-list written for the template developer. The CLI
-    runs the same check as `pdfsuite spec`, with the CLI's exit codes and one JUnit
-    testsuite per page.
+15. **Outputs:** findings highlighted on the page, and the three files of SR-REPORT-JSON,
+    SR-REPORT-HTML and SR-MANIFEST (every inserted value escaped) — the same three from the
+    Spec tab's export and from `pdfsuite spec` (SR-CLI, W-11), with the CLI's exit codes. No
+    JUnit (Arpit, 2026-10-18). The Markdown fix-list for the template developer is a UI-only
+    view of `result.json` (SR-SURFACE-PARITY).
 
 ### Consequences
 
@@ -145,14 +147,14 @@ HTML export inserts `units` unescaped; images inside Form XObjects are mis-place
 
 - [`src/features/spec/specCheck.ts`](../src/features/spec/specCheck.ts) — today's `runSpec`, `groupLines`, `extractImages`
 - [`src/features/spec/SpecTestView.tsx`](../src/features/spec/SpecTestView.tsx) — today's upload and report view
-- [`tools/samples/excel-spec-hierarchical/README.md`](../tools/samples/excel-spec-hierarchical/README.md) — expected results, including today's false failures
+- [`work/samples/excel-spec-template-v2/README.md`](../work/samples/excel-spec-template-v2/README.md) — expected results, including today's false failures
 
 ### Veto condition
 
 **Reopen this decision if:** the fixture's matching PDF, checked against its spec, reports
 any failure once W-04 has landed.
 
-**How to check it:** run the spec check on `tools/samples/excel-spec-hierarchical/report.pdf` with its compiled spec JSON and compare with the README's *Expected results*
+**How to check it:** run the spec check on `work/samples/excel-spec-template-v2/report.pdf` with its compiled spec JSON and compare with the README's *Expected results*
 
 ---
 
@@ -166,4 +168,4 @@ any failure once W-04 has landed.
 
 **Project docs**
 
-- [`tools/samples/excel-spec-hierarchical/README.md`](../tools/samples/excel-spec-hierarchical/README.md) · [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
+- [`work/samples/excel-spec-template-v2/README.md`](../work/samples/excel-spec-template-v2/README.md) · [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
