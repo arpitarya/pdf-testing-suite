@@ -82,9 +82,16 @@ is the same kind of report written in Template v2 (the legacy-layout sample was 
    **Excel or JSON spec**.
 2. **The checker runs only spec JSON.** An uploaded workbook is compiled to spec JSON;
    an uploaded JSON is validated against the same schema. One checking path for both.
-3. **The reader is TypeScript, runs in the browser, and adds no dependency** — it
-   unzips with the `jszip` the app already ships. The CLI uses the same module through
-   its engine seam. There is no second reader in any language (SR-STACK-TYPESCRIPT).
+3. **The workbook is loaded with sheetpane's `@sheetpane/import` and shown with its
+   `@sheetpane/grid`** — Arpit's own MIT-licensed package, pinned exactly. **Arpit,
+   2026-10-19:** *"sheetpane is the one we are going to use to load excel and display."*
+   `read()` gives one plain `Workbook` object — raw values, display text, merges, hidden
+   sheets, rows and columns, saved formula values, rich-text runs, the file's SHA-256 — and
+   pdfsuite's TypeScript validator and compiler read that object, never the zip. The same
+   `read()` runs in the browser and under Node (its own XML reader when `DOMParser` is
+   absent), so the CLI uses the same module through its engine seam. There is no second
+   reader in any language (SR-STACK-TYPESCRIPT); `@sheetpane/import`'s refusals
+   (`unsupported-format`, `password-or-legacy`, …) are mapped to decision 1's messages.
 
 **B · File safety**
 
@@ -221,7 +228,8 @@ is the same kind of report written in Template v2 (the legacy-layout sample was 
 | option | why it lost |
 |---|---|
 | A converter outside the app (Python, `openpyxl`) | the workbook must upload in the app; a second implementation drifts; the product is TypeScript (SR-STACK-TYPESCRIPT) |
-| SheetJS or ExcelJS | a new dependency for cells `jszip` already reads; SheetJS's npm release is stale, ExcelJS has not been published since 2023 |
+| SheetJS or ExcelJS | SheetJS's npm release is stale, ExcelJS has not been published since 2023; neither draws the sheet, so the screen would need a second reader |
+| pdfsuite's own reader on `jszip` (this record's decision 3 until 2026-10-19) | the sheet view (W-46) would parse the file a second time, and two readers can disagree on a merge or a sheet name; sheetpane already reads everything decision 3 lists, in the browser and in Node — Arpit, 2026-10-19 |
 | Merged cells anywhere, including values (the legacy nesting) | a merge over a value hides which row it belongs to; merges are kept for the three label columns, where Excel refuses to sort unequal merges and an inserted edge row shows up as a blank-label error |
 | An ID column | a second name for what the sheet and row number already say; it drifts when rows move |
 | Only a fixed template, no legacy reading | existing sheets would stop working on day one |
@@ -237,11 +245,12 @@ is the same kind of report written in Template v2 (the legacy-layout sample was 
 - [`spec-standard.md`](../spec-standard.md) — today's JSON format; §7 is the old fixed-column plan this replaces
 - [`work/samples/excel-spec-template-v2/README.md`](../work/samples/excel-spec-template-v2/README.md) — the same report as a Template v2 workbook: explicit units, dropdowns, red cells
 - [`work/proposals/excel-spec-comparison.md`](../work/proposals/excel-spec-comparison.md) — the research and the observed sheet conventions
+- [arpitarya/sheetpane](https://github.com/arpitarya/sheetpane) — `@sheetpane/import` (the reader, decision 3) and `@sheetpane/grid` (the sheet view, W-46); MIT
 
 ### Veto condition
 
-**Reopen this decision if:** a second spec reader exists beside the TypeScript one, in any
-language — or an assertion reaches the spec JSON from a row whose unit was not stated in its
+**Reopen this decision if:** a second spec reader exists beside `@sheetpane/import`, in any
+language — including a `jszip` cell reader kept for the engine while the screen uses sheetpane — or an assertion reaches the spec JSON from a row whose unit was not stated in its
 own cell.
 
 **How to check it:** `git ls-files | grep -iE 'spec-from-excel|xlsx.*\.(py|rb|java)$'` returns nothing; W-02's fixture test: the Template v2 workbook with one Unit cell blanked must produce an error on that row and no assertion for it

@@ -5,7 +5,7 @@ description: "Arpit, 2026-10-18: fix the spec workbook inside the Specification 
 item: W-47
 filed: 2026-10-18
 filed_by: Arpit
-updated: 2026-10-18
+updated: 2026-10-19
 updated_by: Arpit
 ball: agent
 ---
@@ -20,7 +20,7 @@ ball: agent
 | **Why** | Arpit: the Excel editor is part of sheetpane, used by pdfsuite |
 | **Done when** | On the fixture, a wrong unit is fixed in the browser, its error mark clears without a reload, and the saved workbook's SHA-256 is the one the next report records |
 | **Status** | 🟡 waiting · 0 of 5 DoD done |
-| **Waits on** | W-46 · sheetpane's Edit mode released |
+| **Waits on** | W-46 · sheetpane on npm (`mode="edit"` is in arpitarya/sheetpane, unpublished) |
 | **Who** | `agent` · Sonnet |
 | **Record** | SR-SPEC-INTAKE (an edited workbook is validated like an uploaded one) |
 
@@ -55,7 +55,7 @@ named sheet pane. I'm working on it. It will be a dependency to the PDF suite."*
 
 ## Blockers
 
-- 🟡 W-46 · sheetpane's Edit mode.
+- 🟡 W-46 · sheetpane on npm — `<sheetpane-excel mode="edit">` exists in the repo, not yet published (checked 2026-10-19).
 
 ## Record affected
 
@@ -67,8 +67,8 @@ workbook; validation rules unchanged.
 - **Two copies of the spec:** a workbook edited here drifts from the one on a shared drive; the
   report's SHA-256 and the "edited in pdfsuite" note say which copy was used.
 - **The sealed folder:** wiring happens on the spec machine (W-46's hazard).
-- **Formulas:** sheetpane writes plain text; a cell that held a formula becomes a value — say so
-  before saving.
+- **Formulas:** sheetpane's download is the original file with only the edited cells patched in;
+  an edited cell that held a formula becomes a value — say so before saving.
 
 ## Reference
 

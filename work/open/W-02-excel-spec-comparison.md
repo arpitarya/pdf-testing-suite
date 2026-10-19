@@ -5,7 +5,7 @@ description: "Arpit, 2026-10-14, rescoped 2026-10-16: build spec intake — uplo
 item: W-02
 filed: 2026-10-14
 filed_by: Arpit
-updated: 2026-10-18
+updated: 2026-10-19
 updated_by: Arpit
 ball: agent
 ---
@@ -20,13 +20,13 @@ ball: agent
 | **Why** | Specs are kept in Excel and Excel is the truth; today the app takes JSON only |
 | **Done when** | A workbook drops in, every problem is listed with its cell — a missing, in-value or unknown unit is an error, never a guess — and the spec JSON downloads and re-uploads unchanged |
 | **Status** | 🟡 waiting · 0 of 10 DoD done |
-| **Waits on** | W-05 — the size limits, tolerances and depth cap come from the constants file |
+| **Waits on** | W-05 — the size limits, tolerances and depth cap come from the constants file · sheetpane on npm (`@sheetpane/import`) |
 | **Who** | `agent` · Opus |
 | **Record** | SR-SPEC-INTAKE |
 
 ```mermaid
 flowchart LR
-  X[".xlsx"] --> R["Read in browser<br/>jszip · visible only"]
+  X[".xlsx"] --> R["Load<br/>@sheetpane/import · browser + Node"]
   J[".json"] --> V
   R --> P["Parse<br/>template v2 · legacy (inferred)"]
   P --> V["Validate<br/>error · warning · info"]
@@ -39,7 +39,7 @@ flowchart LR
 <summary><b>ASCII twin</b></summary>
 
 ```text
-  .xlsx --> read (jszip, visible cells) --> parse (v2 | legacy = inferred) --\
+  .xlsx --> load (@sheetpane/import) --> parse (v2 | legacy = inferred) --\
   .json ---------------------------------------------------------------------->--> validate
         --> extraction JSON --> spec JSON --> checker (W-04)
 ```
@@ -74,7 +74,7 @@ and uploaded again.
 | DoD | what | state |
 |---|---|---|
 | 1 · upload | the spec upload accepts `.xlsx` and `.json`, rejects `.xls`, `.xlsm`, `.csv` and a password-protected `.xlsx` each with its own message; label reads **Excel or JSON spec** (SR-SPEC-INTAKE decision 1) | ⏳ |
-| 2 · reader | TypeScript `.xlsx` reader in `src/services/` on the existing `jszip`, no new dependency; size limits before and after unzip; media skipped; hidden sheets, rows, columns and filtered rows skipped and listed; formulas per decision 5 (decisions 3–6); **units per decision 7a** — read from the Unit cell against the Lists sheet, never inferred; each violation an error with its code | ⏳ |
+| 2 · reader | the workbook loaded with `@sheetpane/import`'s `read()` (pinned exactly), the TypeScript reader in `src/services/` working on its `Workbook` object, never the zip; its refusals mapped to decision 1's messages; size limits before and after unzip; media skipped; hidden sheets, rows, columns and filtered rows skipped and listed; formulas per decision 5 (decisions 3–6); **units per decision 7a** — read from the Unit cell against the Lists sheet, never inferred; each violation an error with its code | ⏳ |
 | 3 · template v2 | Pages List, page sheets, Lists and Settings read per decision 7; the Template v2 fixture `work/samples/excel-spec-template-v2/report-spec.xlsx` (dropdowns and red-cell rules built in) reads clean; a blank template is that workbook with its page rows cleared | ⏳ |
 | 4 · legacy | the nested layout read per decision 8 — merges forward-filled, prose parsed, every value marked inferred | ⏳ |
 | 5 · values | numbers, ranges, `~`, rich text, editing marks, relative values per decisions 9–12 | ⏳ |
@@ -88,6 +88,8 @@ and uploaded again.
 
 - 🟡 **Waiting on W-05** — the size limits, tolerances and depth cap come from
   `src/services/specConstants.ts`, which W-05 creates.
+- 🟡 **Waiting on sheetpane's first npm release** — `@sheetpane/import` is not on npm yet
+  (checked 2026-10-19); Arpit publishes it from arpitarya/sheetpane.
 
 ## Record affected
 
@@ -102,9 +104,14 @@ and uploaded again.
   the extraction JSON.
 - **Real workbooks never enter the repo.** Only the fictional fixtures are committed
   (decision 16); real ones are tested locally and not described in commits.
-- **One reader.** No converter in any other language (SR-STACK-TYPESCRIPT).
-- **Rich-text runs and strikethrough live in `xl/styles.xml` and the shared strings,**
-  not in the cell value — read both, or decisions 10–11 silently do nothing.
+- **One reader.** `@sheetpane/import`, in the browser and under Node; no `jszip` cell reader
+  beside it and no converter in any other language (SR-SPEC-INTAKE decision 3,
+  SR-STACK-TYPESCRIPT).
+- **Rich-text runs and strikethrough are not in the cell value** — read the `Workbook`'s
+  `runs` and `styles`, or decisions 10–11 silently do nothing.
+- **The unzipped cap is sheetpane's.** `read()` refuses past 512 MB in one part or 1 GB in all;
+  if SR-CONSTANTS sets a lower cap (decision 4), that needs an option in `@sheetpane/import` —
+  raise it in arpitarya/sheetpane, never unzip a second time to check.
 
 ## Reference
 

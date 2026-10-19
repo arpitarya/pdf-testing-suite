@@ -24,6 +24,14 @@ entry is corrected by a new one. Distinct from `INTERVIEW.md`, which is the
 
 ---
 
+## 2026-10-19 — sheetpane loads and displays every workbook  ·  Claude Code (Opus 5.5)
+
+- **Asked:** *sheetpane is the one we are going to use to load excel and display; if needed add it to the work items and push it to the same PR.*
+- **Done:** checked arpitarya/sheetpane — MIT, packages `@sheetpane/import` (reader, runs under Node without a DOM) and `@sheetpane/grid` (`<sheetpane-excel>`, `<sheetpane-errors>`), not on npm yet. **SR-SPEC-INTAKE** decision 3 amended: the workbook is loaded with `@sheetpane/import`, shown with `@sheetpane/grid`; the own-`jszip`-reader option moved to Alternatives; veto names a second reader. **W-02** reader DoD, diagram, blocker (sheetpane on npm) and hazards (runs/styles, sheetpane's unzip cap). **W-46** one reader instead of two, package names, MIT confirmed, `@sheetpane/testing` for Playwright. **W-47** and **W-11** follow. Queue rows, ARCHITECTURE (diagram 18 re-rendered with mmdc), INTERVIEW. Pushed to PR #5.
+- **Decided / left open:** read "load" as the engine's reader too, not only the screen — one reader for UI and CLI (L3), which also gives W-11 its DOM-free reader. Open: if SR-CONSTANTS's unzip cap is below sheetpane's 512 MB / 1 GB, `@sheetpane/import` needs an option. W-48's annotated workbook still says `jszip` — untouched.
+- **Mistakes:** none.
+- **Next:** publish sheetpane to npm; then W-05 → W-02.
+
 ## 2026-10-18 — designs exported to work/design/; sheetpane as a dependency; W-50, W-51 filed  ·  Cowork (Opus 5.5)
 
 - **Asked:** *download all the designs and the design system into work/design; create the necessary work items; the Excel viewer/editor and the error component are a separate component, sheetpane, that Arpit is building — a dependency of pdfsuite.*

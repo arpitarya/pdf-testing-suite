@@ -5,7 +5,7 @@ description: "Arpit, 2026-10-18: the Specification tab shows the uploaded workbo
 item: W-46
 filed: 2026-10-18
 filed_by: Arpit
-updated: 2026-10-18
+updated: 2026-10-19
 updated_by: Arpit
 ball: agent
 ---
@@ -16,11 +16,11 @@ ball: agent
 
 | | |
 |---|---|
-| **What** | Add **sheetpane** as a dependency; the Specification tab shows the uploaded workbook in sheetpane's sheet (View mode) and error component, with validation and then pass/fail as marks on the cells |
+| **What** | Add **sheetpane** (`@sheetpane/grid`) as a dependency; the Specification tab shows the uploaded workbook in `<sheetpane-excel>` (View mode) and `<sheetpane-errors>`, with validation and then pass/fail as marks on the cells |
 | **Why** | Arpit: after upload, not a list of what is wrong — a view that looks and feels like the sheet, with wrong and right highlighted; sheetpane is the separate component he is building for it |
 | **Done when** | The fixture workbook opens in sheetpane inside Specification with W-02's errors on their cells, then W-04's pass/fail after a check; selecting a cell highlights its element on the PDF page and back |
 | **Status** | 🟡 waiting · 0 of 6 DoD done |
-| **Waits on** | sheetpane's first published release (arpitarya/sheetpane) · W-02 · W-04 |
+| **Waits on** | sheetpane on npm — not published yet, checked 2026-10-19 (arpitarya/sheetpane, MIT) · W-02 · W-04 |
 | **Who** | `agent` · Opus |
 | **Record** | SR-SPEC-INTAKE · SR-SPEC-CHECK (where results are shown) · SR-SURFACE-PARITY (UI-only row) · SR-NPM-PACKAGES (a third-party dependency) |
 
@@ -50,13 +50,15 @@ the PDF suite."*
 
 | | owns |
 |---|---|
-| **sheetpane** (arpitarya/sheetpane, Arpit) | the sheet (View and Edit modes, in a tab or a pop-up), the error component, XLSX and CSV parsing for display, plain-text cells with merge and centre, no formulas — its own records |
+| **sheetpane** (arpitarya/sheetpane, Arpit, MIT) | **loading** the file (`@sheetpane/import`) and **showing** it (`@sheetpane/grid`: `<sheetpane-excel>` in View and Edit modes, `<sheetpane-errors>`, kept in sync by a shared `pane` id, in a tab or a dialog); formulas, styles and the rest are opt-in plugins — its own records |
 | **pdfsuite** (this item) | the dependency, the **marks** it hands sheetpane — `{ sheet, ref (A1), kind, message, fix? }` with `kind` error · warning · info · pass · fail — and the link from a cell to the PDF page |
 
-**Two readers, one address.** W-02's reader stays the engine's (it runs under Node for the CLI and
-carries the source cell into every finding); sheetpane parses only to draw. They meet on
-**sheet name + A1 reference**, never on row indexes. A test asserts that every mark's cell exists
-in sheetpane's parse of the same file.
+**One reader, one address.** Arpit, 2026-10-19: *"sheetpane is the one we are going to use to
+load excel and display."* W-02's engine loads the workbook with `@sheetpane/import` (in the browser
+and, for the CLI, under Node), and `@sheetpane/grid` reads every file through the same module — so
+the validator and the screen see one `Workbook` (SR-SPEC-INTAKE decision 3). Marks still meet the
+sheet on **sheet name + A1 reference**, never on row indexes, and a test still asserts that every
+mark's cell exists in the loaded workbook.
 
 ## What pdfsuite needs from sheetpane
 
@@ -69,22 +71,22 @@ Written here so the two repos agree; sheetpane decides how in its own records.
    cell, its line is highlighted.
 4. Events for cell selected and cell changed (W-47), with sheet + A1.
 5. Hidden sheets, rows and columns shown as hidden, since W-02 reports them.
-6. An open-source licence (pdfsuite's L2) and semver releases on npm.
+6. An open-source licence (pdfsuite's L2) — **MIT, confirmed 2026-10-19** — and semver releases on npm (none yet).
 
 ## Definition of done
 
 | DoD | what | state |
 |---|---|---|
-| 1 · dependency | `sheetpane` pinned exactly in the app's `package.json`; licence checked against L2; SR-NPM-PACKAGES lists it as a third-party runtime dependency | ⏳ |
+| 1 · dependency | `@sheetpane/grid` pinned exactly in the app's `package.json`, at the same version as W-02's `@sheetpane/import`; MIT checked against L2; SR-NPM-PACKAGES lists both as third-party runtime dependencies | ⏳ |
 | 2 · marks | one function maps W-02's validation report and W-04's results to sheetpane marks (`source.sheet`, `source.cell`); a test proves every mark lands on a cell sheetpane parsed | ⏳ |
 | 3 · validation view | after upload, sheetpane's sheet (View) and error component replace the list; sheet tabs carry counts | ⏳ |
 | 4 · results view | after a check, a *Validation · PDF check* switch shows pass/fail marks, with what the PDF measured | ⏳ |
 | 5 · sheet ↔ PDF | selecting a cell outlines its element on the PDF page; clicking a box selects its cell | ⏳ |
-| 6 · tests · docs | Playwright on the fixture (W-40); `docs/ARCHITECTURE.md` spec diagram; SR-SURFACE-PARITY *sheet view* row (UI only) | ⏳ |
+| 6 · tests · docs | Playwright on the fixture (W-40), driving the sheet through `@sheetpane/testing`'s locators; `docs/ARCHITECTURE.md` spec diagram; SR-SURFACE-PARITY *sheet view* row (UI only) | ⏳ |
 
 ## Blockers
 
-- 🟡 sheetpane's first release (Arpit, separate repo) · W-02 (validation report with cells) · W-04 (results with cells).
+- 🟡 sheetpane's first npm release (Arpit, arpitarya/sheetpane — not on npm, checked 2026-10-19) · W-02 (validation report with cells) · W-04 (results with cells).
 
 ## Record affected
 
@@ -97,12 +99,12 @@ on-screen form. [SR-SPEC-CHECK](../../records/0102_SPEC-check.md) — results sh
 
 - **The sealed folder:** the Specification tab lives in `src/features/spec/`; wiring sheetpane in
   happens on the spec machine, whose dependency allow-list (`src/features/spec/README.md`) must
-  admit `sheetpane` first.
-- **Reader drift:** if W-02's reader and sheetpane disagree on a sheet name or a merged cell, a mark
-  lands on the wrong cell. The DoD 2 test is the guard.
-- **Formatting:** sheetpane draws plain text with merge and centre; fills and bold in the workbook
-  are not shown, so an editing mark (a highlight fill, W-02 decision 11) reaches the screen only as
-  a mark.
+  admit `@sheetpane/grid` and `@sheetpane/import` first.
+- **Version drift:** `@sheetpane/grid` and W-02's `@sheetpane/import` at different versions are
+  two readers again — pin both to one version and bump them together. The DoD 2 test is the guard.
+- **Formatting:** fills and bold are sheetpane's opt-in styles plugin; without it an editing mark
+  (a highlight fill, W-02 decision 11) reaches the screen only as a mark. Whether to load it is
+  this item's call.
 
 ## Reference
 

@@ -870,16 +870,16 @@ Built by **W-33** (`ui`), **W-31** (`create`, both modes), **W-34** (`--sync`), 
 
 ## Spec driven comparison, end to end
 
-- **Excel is the truth.** A Template v2 workbook is read in TypeScript on the existing `jszip`, validated with every problem named by its cell, and compiled to a spec JSON in which every value names its sheet and cell; a spec JSON uploaded directly is used as is ([SR-SPEC-INTAKE](../records/0101_SPEC-intake.md), **W-02**). No converter in another language; no LLM — deterministic and auditable.
+- **Excel is the truth.** A Template v2 workbook is loaded with sheetpane's `@sheetpane/import` (browser and Node) and read in TypeScript, validated with every problem named by its cell, and compiled to a spec JSON in which every value names its sheet and cell; a spec JSON uploaded directly is used as is ([SR-SPEC-INTAKE](../records/0101_SPEC-intake.md), **W-02**). No converter in another language; no LLM — deterministic and auditable.
 - **No guesswork (decision 7a).** One row, one value, one Unit cell from a closed list; a blank, in-value, unknown or disallowed unit — or `px` without a declared *Pixels per inch* — is an **error** that names the cell, never "probably inches". The legacy nested layout is only a migration input: it yields a draft v2 workbook for a person to confirm, never an assertion. The validation report, the plain-words preview and the annotated workbook are **W-48**; the in-place sheet view is **W-46**.
 - **The checker runs spec JSON only** ([SR-SPEC-CHECK](../records/0102_SPEC-check.md), **W-04**): Pages List binding, order, missing and extra pages, fonts, colour by ΔE, wording, tolerances in the spec's units, coverage "N of M rows checked"; nothing passes silently.
-- **The same functions from the Spec tab and `pdfsuite spec`**, through the sealed feature's `engine.ts` ([SR-SPEC](../records/0112_SPEC.md), **W-11**); three files out, every finding with its cell. `.xlsx` on the command line waits on a DOM-free reader from the spec machine.
+- **The same functions from the Spec tab and `pdfsuite spec`**, through the sealed feature's `engine.ts` ([SR-SPEC](../records/0112_SPEC.md), **W-11**); three files out, every finding with its cell. `.xlsx` on the command line waits on the reader moving to `@sheetpane/import` (it reads without a DOM) on the spec machine.
 - **Packaging as `@pdfsuite/spec`** is **W-32** — where it is built is owed a ruling, because the live feature exists only on the spec machine.
 
 ```mermaid
 flowchart TB
   classDef plan stroke-dasharray: 2 3
-  XL["spec.xlsx · Template v2<br/>one row, one value, one Unit cell"] --> RD["readWorkbook<br/>jszip · visible cells · size limits"]
+  XL["spec.xlsx · Template v2<br/>one row, one value, one Unit cell"] --> RD["readWorkbook<br/>@sheetpane/import · visible cells · size limits"]
   LEG["legacy nested layout"] -.->|"draft v2 workbook<br/>a person confirms"| XL
   RD --> PARSE["sheetToSpec<br/>Pages List · page sheets · Lists · Settings"]
   PARSE --> VAL["validateSpec<br/>error · warning · info — each with its cell<br/>unit blank · in-value · unknown · px without density = error"]

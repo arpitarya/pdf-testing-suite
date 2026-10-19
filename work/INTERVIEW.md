@@ -64,7 +64,7 @@ command (batch = a user script), outputs = HTML + JSON + manifest only. **W-08**
 agreed console output, independent of W-07. Arpit ruled 2026-10-18: Option A — **W-09** (🟢):
 `pdfsuite compare` one pair per command, three files out. **W-10** (🟡 on W-09): npm package
 with agent files for Claude, Kiro, Codex, Copilot. **W-11** (🟡 on W-09): `pdfsuite spec`,
-taking over W-04's CLI DoD; `.xlsx` needs a DOM-free sheet reader from the spec machine. **SR-PDF-SUPPORT**
+taking over W-04's CLI DoD; `.xlsx` once the reader is on `@sheetpane/import` (DOM-free) on the spec machine. **SR-PDF-SUPPORT**
 (0105, 2026-10-18) states which kinds of PDF each surface reads today; **W-12** (🟢, testing)
 builds the fictional fixture corpus and the harness that proves the table; **W-13–W-26**
 (🟡) close each gap, chained W-12 → W-13 → W-14 for the loader and the facts reader. **W-27** (🟢, filed 2026-10-18): one
@@ -128,7 +128,10 @@ and images moved with it and are frozen until W-37; `tools/` now holds only `pla
 declared range, read as such; blank label outside a merge = error) and there is **no ID column** — a
 row is its sheet and row number. **W-48** (🟡 on W-02) is the validation contract — plain-words preview, annotated
 `.xlsx` handed back, `pdfsuite spec --validate-only` parity; W-46/W-47 (parallel session) are the
-in-place sheet viewer and editor on top of it. Real workbooks on the spec machine must be migrated
+in-place sheet viewer and editor on top of it. **Arpit, 2026-10-19: sheetpane loads and displays
+every workbook** — `@sheetpane/import` is the one reader (browser and Node, so the CLI too) and
+`@sheetpane/grid` the view; SR-SPEC-INTAKE decision 3 amended (was: own reader on `jszip`). sheetpane
+is MIT but not on npm yet, so W-02 and W-46 now also wait on its first release. Real workbooks on the spec machine must be migrated
 to v2 before they are checked — the legacy path only drafts.
 
 `docs/ARCHITECTURE.md` and its SVGs were first landed on branch

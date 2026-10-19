@@ -5,7 +5,7 @@ description: "Arpit, 2026-10-18: a CLI for spec-driven comparison — `pdfsuite 
 item: W-11
 filed: 2026-10-18
 filed_by: Arpit
-updated: 2026-10-18
+updated: 2026-10-19
 updated_by: Arpit
 ball: agent
 ---
@@ -73,7 +73,7 @@ pdfsuite spec spec.xlsx --validate-only                    # spec authors: check
 | 2 · pages | `--pages "s:p,…"` maps spec page → PDF page (today's `specPageIndex` / `pdfPageOverride`); unmapped = the page the spec declares. When W-04's Pages List binding lands, it becomes the default and `--pages` the override | ⏳ |
 | 3 · validate | the spec is validated before any PDF is opened; `--validate-only` checks the spec alone; every message names its cell or JSON path | ⏳ |
 | 4 · outputs | the same three files as W-09, through W-09's writers: **report.html** (rendered by the spec feature's own pure builder, exported from `engine.ts` — asked of the spec machine so the Spec tab and the CLI share it; a CLI-side renderer only until it arrives; findings boxed on embedded page images, every value escaped), **result.json** (per element: expected · actual · delta · status · source cell; coverage "N of M rows checked"; the compiled spec embedded), **manifest.json** (SHA-256 of the spec file, the PDF and both other outputs — SR-SPEC-CHECK decision 14) | ⏳ |
-| 5 · xlsx | `.xlsx` accepted once `readWorkbook` runs under Node — a **DOM-free sheet reader made on the spec machine** and exported from `engine.ts`; until then `.xlsx` exits 2 with "convert in the app or pass JSON" | ⏳ |
+| 5 · xlsx | `.xlsx` accepted once `readWorkbook` runs under Node — on `@sheetpane/import`, which reads without a DOM (SR-SPEC-INTAKE decision 3), **wired on the spec machine** and exported from `engine.ts`; until then `.xlsx` exits 2 with "convert in the app or pass JSON" | ⏳ |
 | 6 · exit codes | 0 = no failed assertion (warnings, notes, unverifiable allowed, all listed); 1 = a failed assertion or an error finding (e.g. a missing Required page); 2 = bad arguments or the spec fails validation; W-07's open "3" applies here too | ⏳ |
 | 7 · fixture test | `cli/verify/` runs `pdfsuite spec` on the fictional fixture (`work/samples/excel-spec-template-v2/`, `public/samples/spec-sample.*`); results match their README, today's known false failures named until W-04 fixes them | ⏳ |
 | 8 · record · docs | SR-SPEC's Consequences and SR-CLI marked built for `spec` (SR-SPEC-CHECK decision 15 was already amended on 2026-10-18 — three files, no JUnit); `cli/README.md`, `docs/ARCHITECTURE.md` Part 3 and the W-10 agent files cover `spec` | ⏳ |
@@ -82,7 +82,7 @@ pdfsuite spec spec.xlsx --validate-only                    # spec authors: check
 
 - 🟡 **Waiting on W-09** — the output writers, manifest and exit codes are shared.
 - **DoD 5 needs the spec machine.** This machine must not edit `src/features/spec/`;
-  raise the DOM-free reader there. DoD 1–4 and 6–8 do not wait on it.
+  the reader moves to `@sheetpane/import` there. DoD 1–4 and 6–8 do not wait on it.
 
 ## Record affected
 
@@ -100,8 +100,8 @@ pdfsuite spec spec.xlsx --validate-only                    # spec authors: check
   or the W-10 agent files.
 - **No silent pass:** an element the checker cannot read is *unverifiable* and listed, never
   counted as passed (SR-SPEC-CHECK decision 13).
-- **Dependencies:** SR-SPEC-INTAKE decision 3 forbids adding one for the reader — no XML
-  library in the CLI shim to work around DoD 5.
+- **Dependencies:** the reader's one dependency is `@sheetpane/import` (SR-SPEC-INTAKE
+  decision 3) — no other XML library in the CLI shim to work around DoD 5.
 
 ## Reference
 
